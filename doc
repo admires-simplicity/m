@@ -1,0 +1,84 @@
+BACKEND:
+
+Simple reference for library stuff used
+
+_____________________________________________________________________________________________
+From ctype.h:
+iscntrl()		ret true ASCII 0-31, 127 [control characters]
+_____________________________________________________________________________________________
+From errno.h:
+errno			variable containing error number
+EAGAIN			errno for unavailable resource
+_____________________________________________________________________________________________
+From stdio.h:
+printf()
+perror()		print an error message to stderr, based on the error state stored in errno
+_____________________________________________________________________________________________
+From stdlib.h:
+atexit()		run passed command at exit [filo stack]
+exit()			exit (terminate process/program)
+_____________________________________________________________________________________________
+From termios.h:
+struct termios
+tcgetattr()		get and store parameters in termios structure (source, dest)
+tcsetattr()		set parameters (dest, option, source)
+ECHO			write each pressed key to terminal
+ICANON			"canonical mode" (on = read input per line, off = read input per byte)
+ISIG			generate signals for INTR, QUIT, SUSP, DSUSP
+IXON			XON/XOFF flow control on output
+IEXTEN			implementation-defined input processing
+ICRNL			translate carriage return ('\r') to newline ('\n')
+OPOST			implementation-defined output processing
+BRKINT, INPCK ISTRIP	misc - probably already turned off or don't apply anyway
+CS8			Character size 8 (probably already is)
+VMIN			minimum number of characters for noncanonical read (min bytes before read() is allowed to return)
+VTIME			timeout in deciseconds for noncanonical read (max time read() will wait before returning automatically)
+TCSAFLUSH		"change occurs after all output written to the object referred by fd has been transmitted, and all input that has been received but not read will be discarded before the change is made [I think with this setting, starting the program at the terminal, I'll be able to use argument variables, but if the user calls multiple programs, ex "./minesweeper -x; firefox", the stuff after the ';' will be "flushed"]
+_____________________________________________________________________________________________
+_____________________________________________________________________________________________
+From unistd.h:
+read()			read (from, to, nbytes) [return bytes read]
+STDIN_FILENO
+_____________________________________________________________________________________________
+
+
+
+
+
+
+
+
+
+
+
+#################################################################################
+From unistd.h:
+---------------------------------------------------------------------------------
+  READ
+  /* Read NBYTES into BUF from FD.  Return the
+     number read, -1 for errors or 0 for EOF.
+  
+     This function is a cancellation point and therefore not marked with
+     __THROW.  */
+  extern ssize_t read (int __fd, void *__buf, size_t __nbytes) __wur
+      __attr_access ((__write_only__, 2, 3));
+---------------------------------------------------------------------------------
+  #define	STDIN_FILENO	0	/* Standard input.  */
+---------------------------------------------------------------------------------
+#################################################################################
+From termios.h:
+---------------------------------------------------------------------------------
+  struct termios
+  {
+    tcflag_t c_iflag;		/* input mode flags */
+    tcflag_t c_oflag;		/* output mode flags */
+    tcflag_t c_cflag;		/* control mode flags */
+    tcflag_t c_lflag;		/* local mode flags */
+    cc_t c_line;			/* line discipline */
+    cc_t c_cc[NCCS];		/* control characters */
+    speed_t c_ispeed;		/* input speed */
+    speed_t c_ospeed;		/* output speed */
+#define _HAVE_STRUCT_TERMIOS_C_ISPEED 1
+#define _HAVE_STRUCT_TERMIOS_C_OSPEED 1
+  };
+
