@@ -1,7 +1,21 @@
 BACKEND:
 
-Simple reference for library stuff used
+pn:	numeric parameter (any number)
+ps:	seelctive parameter (specific numbers have meaning)
 
+Simple reference for VT100 escape sequences
+ESC [ ps J		Erase in display
+	0 Erase from the active position to the end of the screen, includsive (default)
+	1 Erase from the start of the screen to the active position, inclusive
+	2 Erase all of the display - all lines are erased, changed to single-width, and the cursor does not move
+ESC [ pn ; pn H		Cursor position - default 1
+ESC [ pn C		move cursor forward (move pn columns forward), but NOT past the edge of the screen
+ESC [ pn B		move cursor down (move pn rows down), but NOT past the edge of the screen
+ESC [ ps n		device status report
+	5 please report status (using a DSR control sequence)
+	6 please report active position (using a CPR control sequence)
+
+Simple reference for library stuff used
 _____________________________________________________________________________________________
 From ctype.h:
 iscntrl()		ret true ASCII 0-31, 127 [control characters]
@@ -13,10 +27,16 @@ ________________________________________________________________________________
 From stdio.h:
 printf()
 perror()		print an error message to stderr, based on the error state stored in errno
+sscanf()		read from buffer, according to format string, into argument list
 _____________________________________________________________________________________________
 From stdlib.h:
 atexit()		run passed command at exit [filo stack]
 exit()			exit (terminate process/program)
+_____________________________________________________________________________________________
+From sys/ioctl.h:
+ioctl()			control device: manipulate underlying device parameters of special files
+TIOCGWINSZ		get window size into third argument, winsize structure.
+struct winsize
 _____________________________________________________________________________________________
 From termios.h:
 struct termios
@@ -38,7 +58,9 @@ ________________________________________________________________________________
 _____________________________________________________________________________________________
 From unistd.h:
 read()			read (from, to, nbytes) [return bytes read]
+write()			write (to, from, nbytes) [return bytes wrote]
 STDIN_FILENO
+STDOUT_FILENO
 _____________________________________________________________________________________________
 
 
