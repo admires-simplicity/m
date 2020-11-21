@@ -5,15 +5,22 @@ ps:	seelctive parameter (specific numbers have meaning)
 
 Simple reference for VT100 escape sequences
 ESC [ ps J		Erase in display
-	0 Erase from the active position to the end of the screen, includsive (default)
+	0 Erase from the active position to the end of the screen, inclusive (default)
 	1 Erase from the start of the screen to the active position, inclusive
 	2 Erase all of the display - all lines are erased, changed to single-width, and the cursor does not move
+ESC [ ps K		Erase in Line
+	0 Erase from the active position to the end of the line, inclusive (default)
+	1 Erase from the start of the screen to the active position, inclusive
+	2 Erase all of the line, inclusive
 ESC [ pn ; pn H		Cursor position - default 1
 ESC [ pn C		move cursor forward (move pn columns forward), but NOT past the edge of the screen
 ESC [ pn B		move cursor down (move pn rows down), but NOT past the edge of the screen
 ESC [ ps n		device status report
 	5 please report status (using a DSR control sequence)
 	6 please report active position (using a CPR control sequence)
+ESC [ Ps ; ... ; PS h	Set mode - causes one or modes to be set as specified by each selective parameter in the parameter string
+ESC [ Ps ; ... ; PS l	Reset mode - resets one or modes to be set as specified by each selective parameter in the parameter string
+
 
 Simple reference for library stuff used
 _____________________________________________________________________________________________
@@ -28,10 +35,17 @@ From stdio.h:
 printf()
 perror()		print an error message to stderr, based on the error state stored in errno
 sscanf()		read from buffer, according to format string, into argument list
+snprintf()		write no more than size bytes (including terminating null byte) to buffer. Return number of characters printed, or number of characters omitted, if truncated
 _____________________________________________________________________________________________
 From stdlib.h:
 atexit()		run passed command at exit [filo stack]
 exit()			exit (terminate process/program)
+realloc()		reallocate preaviously allocated pointer, keeping contents of pointed to information by expanding area or allocating new memory block and copying contents. if not enough memory, return null ptr.
+free()			deallocate space pointed by p
+_____________________________________________________________________________________________
+From string.h:
+memcpy()		copy memory: dest src size
+strlen()		return length of string (number of chars before null byte)
 _____________________________________________________________________________________________
 From sys/ioctl.h:
 ioctl()			control device: manipulate underlying device parameters of special files

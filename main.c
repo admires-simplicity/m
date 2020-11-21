@@ -3,12 +3,22 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
 /*** DEFINES ***/
+#define KILO_VERSION "0.0.1"
+
 #define CTRL_KEY(k)	((k) & 0x1f) //binary and with lowest 5 bits (decimal 31), therefor, ON bits in lowest 5 bits, which works because 'a' = 1100001 (97), and ctrl+a = 1
+
+//enum key {
+//	ARROW_LEFT = 'a',
+//	ARROW_RIGHT = 'd',
+//	ARROW_UP = 'w',
+//	ARROW_DOWN = 's'
+//};
 
 enum states {
 	OFF,
@@ -18,6 +28,7 @@ enum states {
 
 /*** DATA ***/
 struct config {
+	int cx, cy;
 	int screenrows;
 	int screencols;
 	struct termios orig_termios;
@@ -56,7 +67,7 @@ int main(void) {
 
 	while (1) {			//forever
 		refresh_screen();	//refresh the screen
-		printf("screen is %d x %d\r\n", E.screencols, E.screenrows);
+		//printf("screen is %d x %d\r\n", E.screencols, E.screenrows);
 		process_keypress();	//handle keypress (get keypress (wait for keypress))
 	}
 
@@ -65,6 +76,9 @@ int main(void) {
 
 //initialize fields in E struct
 void init_editor() {
+	E.cx = 0;
+	E.cy = 0;
+
 	if (get_win_size(&E.screenrows, &E.screencols) == -1) die("get_win_size");
 }
 
@@ -107,6 +121,10 @@ char read_key() {
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1) {		//while have not read any bits
 		if (nread == -1 && errno != EAGAIN) die ("read");	//if read function returns error, kill program
 	}
+
+	this is where I am in the program lol
+	if (c ==
+
 	return c;
 }
 
@@ -143,24 +161,92 @@ int get_win_size(int *rows, int *cols) {
 	}
 }
 
+/*** APPEND BUFFER ***/
+struct abuf {
+	char *b;
+	int len;
+};
+
+#define ABUF_INIT {NULL, 0}
+
+void abAppend(struct abuf *ab, const char *s, int len) {
+	char *new = realloc(ab->b, ab->len + len);
+
+	if (new == NULL) return;
+	memcpy(&new[ab->len], s, len);
+	ab->b = new;
+	ab->len += len;
+}
+
+void abFree(struct abuf *ab) {
+	free(ab->b);
+}
+
 /*** OUTPUT ***/
-void draw_rows() {
+void draw_rows(struct abuf *ab) {
 	int y;
 	for (y = 0; y < E.screenrows; ++y) {
-		write(STDOUT_FILENO, "~\r\n", 3);
+
+		if (y == E.screenrows / 3) {
+			char welcome[80];
+			int welcomelen = snprintf(welcome, sizeof(welcome),
+					"Kilo editor -- version %s", KILO_VERSION);
+			if (welcomelen > E.screencols) welcomelen = E.screencols;
+			int padding = (E.screencols - welcomelen) / 2;
+			if (padding) {
+				abAppend(ab, "~", 1);
+				--padding;
+			}
+			while (padding--) abAppend(ab, " ", 1);
+			abAppend(ab, welcome, welcomelen);
+		} else {
+			abAppend(ab, "~", 1);
+		}
+
+
+		abAppend(ab, "\x1b[K", 3);
+		if (y < E.screenrows - 1) {
+			abAppend(ab, "\r\n", 2);
+		}
 	}
 }
 
 void refresh_screen() {
-	write(STDOUT_FILENO, "\x1b[2J", 4); //erase (all) in display //escape sequence starts with ESC (decimal 27), [ ...
-	write(STDOUT_FILENO, "\x1b[H", 3);
+	struct abuf ab = ABUF_INIT;
+	abAppend(&ab, "\x1b[?25l", 6); //Hide cursor
+	//abAppend(&ab, "\x1b[2J", 4); //erase (all) in display //escape sequence starts with ESC (decimal 27), [ ...
+	abAppend(&ab, "\x1b[H", 3);
 
-	draw_rows();
+	draw_rows(&ab);
+	
+	char buf[32];
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1); //write move command to H buf, with values converted from 0indexed to 1indexed
+	abAppend(&ab, buf, strlen(buf));
 
-	//write(STDOUT_FILENO, "\x1b[H", 3);
+	abAppend(&ab, "\x1b[?25h", 6); //show cursor
+
+	write(STDOUT_FILENO, ab.b, ab.len);
+	abFree(&ab);
 }
 
 /*** INPUT ***/
+void move_cursor(char key) {
+	switch (key) {
+		case 'a':
+			--E.cx;
+			break;
+		case 'd':
+			++E.cx;
+			break;
+		case 'w':
+			--E.cy;
+			break;
+		case 's':
+			++E.cy;
+			break;
+	}
+}
+
 //get a key and handle it
 void process_keypress() {
 	char c = read_key();
@@ -174,6 +260,16 @@ void process_keypress() {
 			break;
 		//case 'a':
 			//write(STDOUT_FILENO, "lol", 3);
+
+		case 'w':
+		case 's':
+		case 'a':
+		case 'd':
+			move_cursor(c);
+			break;
+
+
+
 		default:
 			//printf("KEY UNKNOWN!\r\n");
 			break;
