@@ -14,6 +14,9 @@
 
 #define CTRL_KEY(k)	((k) & 0x1f) //binary and with lowest 5 bits (decimal 31), therefor, ON bits in lowest 5 bits, which works because 'a' = 1100001 (97), and ctrl+a = 1
 
+#define TRUE	1
+#define FALSE	0
+
 enum key {
 	ARROW_LEFT = 1000,
 	ARROW_RIGHT,
@@ -95,7 +98,7 @@ int b = 102;
 int minefield[16][30];
 int gamefield[16][30];
 
-int generation = 1;	//0 = random, 1 = friendly
+int generation = 0;	//0 = random, 1 = friendly
 
 /*** INIT ***/
 int main(void) {
@@ -161,90 +164,191 @@ void generate_minefield()
 
 }
 
+//void random_generate_minefield()
+//{
+//	int zzz;
+//	int pos;
+//	int bombs_placed;
+//	zzz = 0;
+//
+//	for (bombs_placed = 0; bombs_placed < b; ++bombs_placed) {
+//		pos = rand() % (w * h); //generate number in range of #cells
+//
+//		int i = 0;	//index for number of cells
+//		for (int j = 0; j < h; ++j)
+//			for (int k = 0; k < w; ++k) {
+//				++zzz;
+//				if (zzz > 29000) die("big zzz");	///TEST, SEEMS TO NEVER GO OVER 29000
+//				if (i++ == pos) {
+//					minefield[j][k] = 1; //bomb here
+//					k = w;
+//					j = h;
+//					}
+//				}
+//	}
+//
+//	if (bombs_placed != b)
+//		die("NOT ENOUGH BOMBS!");
+//	//printf("generation == %d\n", generation);
+//	printf("%d\r\n", zzz++);
+//}
+
+
 void random_generate_minefield()
 {
-	int zzz;
-	int pos;
+	int pos;		//for current position in loop
 	int bombs_placed;
-	zzz = 0;
+	int repeat = FALSE;
+	int position[b];
 
-	for (bombs_placed = 0; bombs_placed < b; ++bombs_placed) {
-		pos = rand() % (w * h); //generate number in range of #cells
+	//initialize empty position array
+	for (int i = 0; i < b; ++i)
+		position[i] = 0;
 
+	//place req'd num bombs
+	while (bombs_placed < b) {
+		//random in acceptable range
+		pos = rand() % (w * h);
+
+		//check against array (could replace with binary tree for efficiency)
+		for (int i = 0; i < bombs_placed; ++i)
+			if (position[i] == pos) {
+				repeat = TRUE;
+				//++repeats;
+				break;
+			}
+
+		//continue if repeat found
+		if (repeat) {
+			repeat = FALSE;
+			continue;
+		}
+
+		//set pos in pos array
+		position[bombs_placed] = pos;	//this maybe should be in loop?
+
+		//set pos in minefield 2d array (could be way more efficient)
 		int i = 0;	//index for number of cells
 		for (int j = 0; j < h; ++j)
 			for (int k = 0; k < w; ++k) {
-				++zzz;
-				if (i++ == pos) {
+				if (i == pos) {
 					minefield[j][k] = 1; //bomb here
+					++bombs_placed;
 					k = w;
 					j = h;
-					}
-				}
-	}
-
-	if (bombs_placed != b)
-		die("NOT ENOUGH BOMBS!");
-	//printf("generation == %d\n", generation);
-	printf("%d\r\n", zzz++);
-}
-
-//THIS DOESN'T WORK YET?
-void friendly_generate_minefield()
-{
-
-	int zzz;
-	int pos;
-	zzz = 0;
-
-	////for (int bombs_placed = 0; bombs_placed < b; ++bombs_placed) {
-	////	pos = rand() % (w * h);
-
-	////	int i = 0;
-	////	for (int j = 0; j < h; ++j)
-	////		for (int k = 0; k < w; ++k) {
-	////			++zzz;
-	////			if (i == pos) {
-	////				minefield[j][k] = 1; //bomb here
-	////				if (minefield[T.cy][T.cx] || adjacent_bombs(T.cy, T.cx)) { //if bomb is within radius of cursor
-	////					printf("BOMB IN GENSPACE\r\n");
-	////					minefield[j][k] == 0; 	//delete the bomb here
-	////					//--bombs_placed;		//counteract bomb increment
-	////				}
-	////				k = w; //continue
-	////				j = h;
-	////			} else
-	////				++i;
-	////		}
-
-
-	////}
-
-	int bombs_placed = 0;
-	while (bombs_placed < b) {
-		pos = rand() % (w * h);
-
-		int i = 0;
-		for (int j = 0; j < h; ++j)
-			for (int k = 0; k < w; ++k) {
-				++zzz;
-				if (i == pos) {
-					if (!(minefield[T.cy][T.cx] || adjacent_bombs(T.cy, T.cx))) { //if bomb is within radius of cursor
-						minefield[j][k] = 1; //bomb here
-						++bombs_placed;
-					}
-					k = w; //continue
-					j = h;
-				} else
+				} else 
 					++i;
 			}
-
-
-
 	}
 
-	printf("%d\r\n", zzz++);
+	//after req'd num bombs finished, not enough bombs -> error
+	if (bombs_placed != b)
+		die("NOT ENOUGH BOMBS!");
 }
+
+
+
+void friendly_generate_minefield()
+{
+	//mask adjacent bombs
+	//randomgen
+	//unmask adjacent bombs
+}
+
+
+//////THIS DOESN'T WORK YET?
+////void friendly_generate_minefield()
+////{
+////
+////	int zzz;
+////	int pos;
+////	zzz = 0;
+////
+////	////for (int bombs_placed = 0; bombs_placed < b; ++bombs_placed) {
+////	////	pos = rand() % (w * h);
+////
+////	////	int i = 0;
+////	////	for (int j = 0; j < h; ++j)
+////	////		for (int k = 0; k < w; ++k) {
+////	////			++zzz;
+////	////			if (i == pos) {
+////	////				minefield[j][k] = 1; //bomb here
+////	////				if (minefield[T.cy][T.cx] || adjacent_bombs(T.cy, T.cx)) { //if bomb is within radius of cursor
+////	////					printf("BOMB IN GENSPACE\r\n");
+////	////					minefield[j][k] == 0; 	//delete the bomb here
+////	////					//--bombs_placed;		//counteract bomb increment
+////	////				}
+////	////				k = w; //continue
+////	////				j = h;
+////	////			} else
+////	////				++i;
+////	////		}
+////
+////
+////	////}
+////	
+////	int repeat = 0;
+////	int repeats = 0;
+////
+////	int bombs_placed = 0;
+////	int position[b];
+////	for (int i = 0; i < b; ++i)
+////		position[i] = 0;
+////	while (bombs_placed < b) {
+////		pos = rand() % (w * h);
+////
+////		//if (pos == 0)
+////		//	continue;
+////		for (int i = 0; i < bombs_placed; ++i)
+////			if (position[i] == pos) {
+////				repeat = 1;
+////				++repeats;
+////				break;
+////			}
+////
+////		if (repeat) {
+////			repeat = 0;
+////			continue;
+////		}
+////		
+////		int i = 0;
+////		for (int j = 0; j < h; ++j)
+////			for (int k = 0; k < w; ++k) {
+////				++zzz;
+////				if (zzz > 1000000) {
+////					for (int w = 0; w < bombs_placed+1; ++w)
+////						printf("position[%d] == %d", w, position[w]);
+////					printf("pos == %d", pos);
+////					printf("i==%d", i);
+////					printf(",bp==%d", bombs_placed);
+////					printf(",repeats==%d", repeats);
+////					die("probably error");
+////				}
+////				printf("%d\r\n", zzz);
+////				if (i == pos) {
+////					if (!(minefield[T.cy][T.cx] || adjacent_bombs(T.cy, T.cx))) { //if bomb is within radius of cursor
+////						minefield[j][k] = 1; //bomb here
+////						position[bombs_placed] = pos;
+////						++bombs_placed;
+////					}
+////					k = w; //continue
+////					j = h;
+////				} else
+////					++i;
+////			}
+////
+////
+////		//pos[44] == 0pos==187
+////		//pos[16] == 0pos[17] == 0pos==33
+////		//
+////	}
+////
+////
+////	printf("%d\r\n", zzz);
+////
+////	//the largest value of zzz should be 48960, should it not?
+////	//and i'm calculating repeat values, so, zzz should still not be over 48960
+////}
 
 
 
@@ -426,15 +530,25 @@ void draw_minefield(struct abuf *ab)
 			if (minefield[i][j] == 1)
 				abAppend(ab, "*", 1);
 			else
-				if (z = adjacent_bombs(i, j)) {	//not 0 adj boms
-					snprintf(buf, sizeof(buf), "%d", z);
-					abAppend(ab, buf, strlen(buf));
-				} else {
+		//		if (z = adjacent_bombs(i, j)) {	//not 0 adj boms
+		//			snprintf(buf, sizeof(buf), "%d", z);
+		//			abAppend(ab, buf, strlen(buf));
+		//		} else {
 					abAppend(ab, ".", 1);
-				}
+		//		}
 		}
 		abAppend(ab, "\r\n", 2);
 	}
+}
+
+int count_bombs()
+{
+	int count = 0;
+	for (int i = 0; i < h; ++i)
+	       for (int j = 0; j < w; ++j)
+		       if (minefield[i][j] == 1)
+			       ++count;
+	return count;
 }
 
 void refresh_screen() {
@@ -445,6 +559,9 @@ void refresh_screen() {
 
 	//draw_rows(&ab);
 	draw_minefield(&ab);
+	char bug[20];
+	snprintf(bug, sizeof(bug), "nbombs == %d\r\n", count_bombs());
+	abAppend(&ab, bug, strlen(bug));
 	
 	char buf[32];
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", T.cy + 1, T.cx + 1); //write move command to H buf, with values converted from 0indexed to 1indexed
@@ -486,6 +603,11 @@ void move_cursor(int key) {
 	}
 }
 
+void gen_rep()
+{
+	printf("gen = %d\r\n", generation);
+}
+
 //get a key and handle it
 void process_keypress() {
 	int c = read_key();
@@ -497,6 +619,7 @@ void process_keypress() {
 
 			
 			write(STDOUT_FILENO, "\x1b[17;1H", 7);	//position cursor 1,1
+			atexit(gen_rep);
 			exit (0);
 			break;
 		//case 'a':
