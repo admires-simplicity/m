@@ -6,6 +6,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 /*** DEFINES ***/
@@ -22,8 +23,9 @@ enum key {
 
 enum states {
 	OFF,
+	ACTIVATED,
 	FLAGGED,
-	ACTIVATED
+	SECONDARY_FLAGGED
 };
 
 /*** DATA ***/
@@ -60,7 +62,7 @@ void refresh_screen();
 void init_editor();
 int get_win_size(int *rows, int *cols);
 
-//int minefield[][30] =
+//int mineminefield[][30] =
 //{ //probably like 50 bombs
 //	{0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0},	//30
 //	{0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0},
@@ -80,32 +82,35 @@ int get_win_size(int *rows, int *cols);
 //	{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 //};
 //
-//int field_w = sizeof *minefield / sizeof (int);
-//int field_h = sizeof minefield / (field_w * sizeof(int)); // / (sizeof field_w * sizeof (int));
+//int minefield_w = sizeof *mineminefield / sizeof (int);
+//int minefield_h = sizeof mineminefield / (minefield_w * sizeof(int)); // / (sizeof minefield_w * sizeof (int));
 //
-//sizeof minefield = sizeof field_w * sizeof field_h * sizeof (int);
+//sizeof mineminefield = sizeof minefield_w * sizeof minefield_h * sizeof (int);
 
 int h = 16;
 int w = 30;
-int b = 0;
+//int b = (int) ((float)h * (float)w) / 0.2125;
+int b = 102;
 
-int field[16][30];
+int minefield[16][30];
+int gamefield[16][30];
 
+int generation = 1;	//0 = random, 1 = friendly
 
 /*** INIT ***/
 int main(void) {
 	enable_raw_mode();
 	init_editor();
 //
-//	make_field(29, 16);
+//	make_minefield(29, 16);
 //
 	while (1) {			//forever
 		refresh_screen();	//refresh the screen
 		//printf("screen is %d x %d\r\n", T.screencols, T.screenrows);
 		process_keypress();	//handle keypress (get keypress (wait for keypress))
 	}
-//	printf("field_w = %d\n", field_w);
-//	printf("field_h = %d\n", field_h);
+//	printf("minefield_w = %d\n", minefield_w);
+//	printf("minefield_h = %d\n", minefield_h);
 
 
 
@@ -113,24 +118,144 @@ int main(void) {
 	return 0;
 }
 
+int adjacent_bombs(int y, int x)
+{
+	int adj = 0;
 
-void initialize_field()
+	if (           y > 0   && minefield[y-1][x  ]) ++adj;	// ABOVE
+	if (x < w-1 && y > 0   && minefield[y-1][x+1]) ++adj;	// ABOVE + RIGHT
+	if (x < w-1            && minefield[y  ][x+1]) ++adj;	// RIGHT
+	if (x < w-1 && y < h-1 && minefield[y+1][x+1]) ++adj;	// DOWN + RIGHT 
+	if (           y < h-1 && minefield[y+1][x  ]) ++adj;	// DOWN
+	if (x > 0   && y < h-1 && minefield[y+1][x-1]) ++adj;	// DOWN + LEFT
+	if (x > 0              && minefield[y  ][x-1]) ++adj;	// LEFT
+	if (x > 0   && y > 0   && minefield[y-1][x-1]) ++adj;	// LEFT + UP
+
+	return adj;
+}
+
+void generate_minefield();
+
+void initialize_minefield()
 {
 	for (int i = 0; i < h; ++i)
-		for (int j = 0; j < w; ++j)
-			field[i][j] = 0;
+		for (int j = 0; j < w; ++j) {
+			minefield[i][j] = 0;
+			gamefield[i][j] = minefield[i][j];
+		}
+
+	generate_minefield();
+}
+
+void generate_minefield()
+{
+	void random_generate_minefield();
+	void friendly_generate_minefield();
+
+	if (generation == 0)
+		random_generate_minefield();
+	else if (generation == 1)
+		friendly_generate_minefield();
+	else
+		die("GENERATION COMMAND NOT UNDERSTOOD");
+
+}
+
+void random_generate_minefield()
+{
+	int zzz;
+	int pos;
+	int bombs_placed;
+	zzz = 0;
+
+	for (bombs_placed = 0; bombs_placed < b; ++bombs_placed) {
+		pos = rand() % (w * h); //generate number in range of #cells
+
+		int i = 0;	//index for number of cells
+		for (int j = 0; j < h; ++j)
+			for (int k = 0; k < w; ++k) {
+				++zzz;
+				if (i++ == pos) {
+					minefield[j][k] = 1; //bomb here
+					k = w;
+					j = h;
+					}
+				}
+	}
+
+	if (bombs_placed != b)
+		die("NOT ENOUGH BOMBS!");
+	//printf("generation == %d\n", generation);
+	printf("%d\r\n", zzz++);
+}
+
+//THIS DOESN'T WORK YET?
+void friendly_generate_minefield()
+{
+
+	int zzz;
+	int pos;
+	zzz = 0;
+
+	////for (int bombs_placed = 0; bombs_placed < b; ++bombs_placed) {
+	////	pos = rand() % (w * h);
+
+	////	int i = 0;
+	////	for (int j = 0; j < h; ++j)
+	////		for (int k = 0; k < w; ++k) {
+	////			++zzz;
+	////			if (i == pos) {
+	////				minefield[j][k] = 1; //bomb here
+	////				if (minefield[T.cy][T.cx] || adjacent_bombs(T.cy, T.cx)) { //if bomb is within radius of cursor
+	////					printf("BOMB IN GENSPACE\r\n");
+	////					minefield[j][k] == 0; 	//delete the bomb here
+	////					//--bombs_placed;		//counteract bomb increment
+	////				}
+	////				k = w; //continue
+	////				j = h;
+	////			} else
+	////				++i;
+	////		}
+
+
+	////}
+
+	int bombs_placed = 0;
+	while (bombs_placed < b) {
+		pos = rand() % (w * h);
+
+		int i = 0;
+		for (int j = 0; j < h; ++j)
+			for (int k = 0; k < w; ++k) {
+				++zzz;
+				if (i == pos) {
+					if (!(minefield[T.cy][T.cx] || adjacent_bombs(T.cy, T.cx))) { //if bomb is within radius of cursor
+						minefield[j][k] = 1; //bomb here
+						++bombs_placed;
+					}
+					k = w; //continue
+					j = h;
+				} else
+					++i;
+			}
+
+
+
+	}
+
+	printf("%d\r\n", zzz++);
 }
 
 
 
-
-
-//initialize fields in T struct
+//initialize minefields in T struct
 void init_editor() {
 	T.cx = 0;
 	T.cy = 0;
 
-	initialize_field();
+	srand(time(NULL));
+
+	initialize_minefield();
 
 	if (get_win_size(&T.screenrows, &T.screencols) == -1) die("get_win_size");
 }
@@ -140,6 +265,8 @@ void init_editor() {
 void die(const char *s) {
 	write(STDOUT_FILENO, "\x1b[2J", 4);	//clear screen
 	write(STDOUT_FILENO, "\x1b[H", 3);	//position cursor 1,1
+
+	disable_raw_mode(); //we'd disable it when we exited, but then the perror formatting would be messed up
 
 	perror(s);
 	exit(1);
@@ -154,8 +281,8 @@ void enable_raw_mode() {
 	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
 	raw.c_oflag &= ~(OPOST);
 	raw.c_cflag |= (CS8);
-	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG); //bin AND on c_lflag bitfield, where echo, icanon bits are 0 , but all others 1, i.e. turn specified options off, and keep others as they are
-	raw.c_cc[VMIN] = 0;	//control characters field
+	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG); //bin AND on c_lflag bitminefield, where echo, icanon bits are 0 , but all others 1, i.e. turn specified options off, and keep others as they are
+	raw.c_cc[VMIN] = 0;	//control characters minefield
 	raw.c_cc[VTIME] = 1;
 
 
@@ -279,19 +406,32 @@ void abFree(struct abuf *ab) {
 ////	}
 ////}
 
-void draw_field(struct abuf *ab)
+//char 
+
+void draw_minefield(struct abuf *ab)
 {
 //	char buf[32];
 //	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", T.cy + 1, T.cx + 1); //write move command to H buf, with values converted from 0indexed to 1indexed
 //	abAppend(ab, buf, strlen(buf));
 
 	char *c;
+	char buf[2]; //size for one character, and the null byte? lel
+	int z;
+
 	for (int i = 0; i < h; ++i) {
 		//printf("%2d: ", i);
 		for (int j = 0; j < w; ++j) {
-			////snprintf(c, 1, "%d", field[i][j]);
-			//printf("%d", field[i][j]);
-			abAppend(ab, "0", 1);
+			////snprintf(c, 1, "%d", minefield[i][j]);
+			//printf("%d", minefield[i][j]);
+			if (minefield[i][j] == 1)
+				abAppend(ab, "*", 1);
+			else
+				if (z = adjacent_bombs(i, j)) {	//not 0 adj boms
+					snprintf(buf, sizeof(buf), "%d", z);
+					abAppend(ab, buf, strlen(buf));
+				} else {
+					abAppend(ab, ".", 1);
+				}
 		}
 		abAppend(ab, "\r\n", 2);
 	}
@@ -304,7 +444,7 @@ void refresh_screen() {
 	abAppend(&ab, "\x1b[H", 3);
 
 	//draw_rows(&ab);
-	draw_field(&ab);
+	draw_minefield(&ab);
 	
 	char buf[32];
 	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", T.cy + 1, T.cx + 1); //write move command to H buf, with values converted from 0indexed to 1indexed
@@ -327,7 +467,7 @@ void move_cursor(int key) {
 			break;
 		case ARROW_RIGHT:
 		case 'l':
-			if (T.cx != T.screencols - 1) {
+			if (T.cx != w - 1) {
 			 ++T.cx;
 			}
 			break;
@@ -339,7 +479,7 @@ void move_cursor(int key) {
 			break;
 		case ARROW_DOWN:
 		case 'j':
-			if (T.cy != T.screenrows - 1) {
+			if (T.cy != h - 1) {
 				++T.cy;
 			}
 			break;
@@ -355,6 +495,8 @@ void process_keypress() {
 			//write(STDOUT_FILENO, "\x1b[2J", 4);	//clear screen
 			//write(STDOUT_FILENO, "\x1b[H", 3);	//position cursor 1,1
 
+			
+			write(STDOUT_FILENO, "\x1b[17;1H", 7);	//position cursor 1,1
 			exit (0);
 			break;
 		//case 'a':
@@ -372,6 +514,9 @@ void process_keypress() {
 			break;
 
 
+		case CTRL_KEY('r'):
+			initialize_minefield();
+			break;
 
 		default:
 			//printf("KEY UNKNOWN!\r\n");
