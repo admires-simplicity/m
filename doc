@@ -1,120 +1,45 @@
-BACKEND:
+LEGEND:
+'#'
+unknown (default) cell
 
-pn:	numeric parameter (any number)
-ps:	seelctive parameter (specific numbers have meaning)
+' '
+blank cell
 
-Simple reference for VT100 escape sequences
-ESC [ ps J		Erase in display
-	0 Erase from the active position to the end of the screen, inclusive (default)
-	1 Erase from the start of the screen to the active position, inclusive
-	2 Erase all of the display - all lines are erased, changed to single-width, and the cursor does not move
-ESC [ ps K		Erase in Line
-	0 Erase from the active position to the end of the line, inclusive (default)
-	1 Erase from the start of the screen to the active position, inclusive
-	2 Erase all of the line, inclusive
-ESC [ pn ; pn H		Cursor position - default 1
-ESC [ pn C		move cursor forward (move pn columns forward), but NOT past the edge of the screen
-ESC [ pn B		move cursor down (move pn rows down), but NOT past the edge of the screen
-ESC [ ps n		device status report
-	5 please report status (using a DSR control sequence)
-	6 please report active position (using a CPR control sequence)
-ESC [ Ps ; ... ; PS h	Set mode - causes one or modes to be set as specified by each selective parameter in the parameter string
-ESC [ Ps ; ... ; PS l	Reset mode - resets one or modes to be set as specified by each selective parameter in the parameter string
+'!'
+flagged cell
 
+'?'
+secondary flagged cell
 
-Simple reference for library stuff used
-_____________________________________________________________________________________________
-From ctype.h:
-iscntrl()		ret true ASCII 0-31, 127 [control characters]
-_____________________________________________________________________________________________
-From errno.h:
-errno			variable containing error number
-EAGAIN			errno for unavailable resource
-_____________________________________________________________________________________________
-From stdio.h:
-printf()
-perror()		print an error message to stderr, based on the error state stored in errno
-sscanf()		read from buffer, according to format string, into argument list
-snprintf()		write no more than size bytes (including terminating null byte) to buffer. Return number of characters printed, or number of characters omitted, if truncated
-_____________________________________________________________________________________________
-From stdlib.h:
-atexit()		run passed command at exit [filo stack]
-exit()			exit (terminate process/program)
-realloc()		reallocate preaviously allocated pointer, keeping contents of pointed to information by expanding area or allocating new memory block and copying contents. if not enough memory, return null ptr.
-free()			deallocate space pointed by p
-_____________________________________________________________________________________________
-From string.h:
-memcpy()		copy memory: dest src size
-strlen()		return length of string (number of chars before null byte)
-_____________________________________________________________________________________________
-From sys/ioctl.h:
-ioctl()			control device: manipulate underlying device parameters of special files
-TIOCGWINSZ		get window size into third argument, winsize structure.
-struct winsize
-_____________________________________________________________________________________________
-From termios.h:
-struct termios
-tcgetattr()		get and store parameters in termios structure (source, dest)
-tcsetattr()		set parameters (dest, option, source)
-ECHO			write each pressed key to terminal
-ICANON			"canonical mode" (on = read input per line, off = read input per byte)
-ISIG			generate signals for INTR, QUIT, SUSP, DSUSP
-IXON			XON/XOFF flow control on output
-IEXTEN			implementation-defined input processing
-ICRNL			translate carriage return ('\r') to newline ('\n')
-OPOST			implementation-defined output processing
-BRKINT, INPCK ISTRIP	misc - probably already turned off or don't apply anyway
-CS8			Character size 8 (probably already is)
-VMIN			minimum number of characters for noncanonical read (min bytes before read() is allowed to return)
-VTIME			timeout in deciseconds for noncanonical read (max time read() will wait before returning automatically)
-TCSAFLUSH		"change occurs after all output written to the object referred by fd has been transmitted, and all input that has been received but not read will be discarded before the change is made [I think with this setting, starting the program at the terminal, I'll be able to use argument variables, but if the user calls multiple programs, ex "./minesweeper -x; firefox", the stuff after the ';' will be "flushed"]
-_____________________________________________________________________________________________
-_____________________________________________________________________________________________
-From unistd.h:
-read()			read (from, to, nbytes) [return bytes read]
-write()			write (to, from, nbytes) [return bytes wrote]
-STDIN_FILENO
-STDOUT_FILENO
-_____________________________________________________________________________________________
+'*'
+uncovered bomb (game fail)
+
+1, 2, 3, 4, 5, 6, 7, 8
+number of adjacent bombs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+CONTROLS:
+arrow keys / hjkl
+move
+
+CTRL + Q
+quit
+
+f
+unveil / step on cell
+
+d
+flag cell
+
+s
+secondary flag cell
+
+a
+unveil all nonflagged adjacent cells
 
 
+based on an image I counted, 
+16 tall
+30 wide
+102 bombds
 
-
-
-
-
-
-
-
-
-#################################################################################
-From unistd.h:
----------------------------------------------------------------------------------
-  READ
-  /* Read NBYTES into BUF from FD.  Return the
-     number read, -1 for errors or 0 for EOF.
-  
-     This function is a cancellation point and therefore not marked with
-     __THROW.  */
-  extern ssize_t read (int __fd, void *__buf, size_t __nbytes) __wur
-      __attr_access ((__write_only__, 2, 3));
----------------------------------------------------------------------------------
-  #define	STDIN_FILENO	0	/* Standard input.  */
----------------------------------------------------------------------------------
-#################################################################################
-From termios.h:
----------------------------------------------------------------------------------
-  struct termios
-  {
-    tcflag_t c_iflag;		/* input mode flags */
-    tcflag_t c_oflag;		/* output mode flags */
-    tcflag_t c_cflag;		/* control mode flags */
-    tcflag_t c_lflag;		/* local mode flags */
-    cc_t c_line;			/* line discipline */
-    cc_t c_cc[NCCS];		/* control characters */
-    speed_t c_ispeed;		/* input speed */
-    speed_t c_ospeed;		/* output speed */
-#define _HAVE_STRUCT_TERMIOS_C_ISPEED 1
-#define _HAVE_STRUCT_TERMIOS_C_OSPEED 1
-  };
-
+102/480 = 0.2125
