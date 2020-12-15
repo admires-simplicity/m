@@ -662,7 +662,7 @@ void step(int y, int x)
 		//gameover();
 		die("gameover!");
 	else if (i = adjacent_bombs(y, x)) {	//if any adjacent bombs
-		if (gamefield[y][x] == i)
+		if (gamefield[y][x] == i)		//I THINK IMPLEMENTING THIS IS WHAT BROKE THIS
 			if (adjacent_flags(y, x) == gamefield[y][x])
 				flag_reveal(y, x); //MIGHT THIS CAUSE A CASCADE BECAUSE STEP IS RECURSIVE??? IF SO, DO I CARE?
 		else
