@@ -49,6 +49,8 @@ int b;
 int minefield[16][30];
 //array to store player's 
 int gamefield[16][30];
+//array for space checking DESCRIBE THIS BETTER
+int zcheck[16][30];
 
 int generation = 1;	//0 = random, 1 = friendly
 
@@ -104,6 +106,7 @@ void initialize_fields()
 		for (int j = 0; j < w; ++j) {
 			minefield[i][j] = 0;
 			gamefield[i][j] = OFF;	//init gamefield
+			zcheck[i][j] =  0;
 		}
 
 	if (generation == 0)
@@ -472,9 +475,30 @@ void draw_gamefield(struct abuf *ab)
 					abAppend(ab, "#", 1);
 					break;
 				default:
+					//roygbiv
+					//vibgyor
+					//v b y r i g o
+					if (gamefield[i][j] == 1)
+						abAppend(ab, "\x1b[38;5;198m", 11);
+					else if (gamefield[i][j] == 2)
+						abAppend(ab, "\x1b[38;5;20m", 10);
+					else if (gamefield[i][j] == 3)
+						abAppend(ab, "\x1b[38;5;11m", 10);
+					else if (gamefield[i][j] == 4)
+						abAppend(ab, "\x1b[38;5;40m", 10);
+					else if (gamefield[i][j] == 5)
+						abAppend(ab, "\x1b[38;5;52m", 10);
+					else if (gamefield[i][j] == 6)
+						abAppend(ab, "\x1b[38;5;19m", 10);
+					else if (gamefield[i][j] == 7)
+						abAppend(ab, "\x1b[38;5;133m", 11);
+					else if (gamefield[i][j] == 8)
+						abAppend(ab, "\x1b[38;5;196m", 11);
+
 					buf[0] = gamefield[i][j] + '0';
 					buf[1] = '\0';
 					abAppend(ab, buf, 1);
+					abAppend(ab, "\x1b[0m", 4);
 					break;
 			}
 		}
@@ -517,71 +541,135 @@ void refresh_screen() {
 	abFree(&ab);
 }
 
-void step(int y, int x, int p);
-void reveal_adj_to_zero(int y, int x, int p);
+void step(int y, int x);
+void reveal_adj_to_zero(int y, int x);
 
-int zcheck[h][w];
+//Return the number of adjacent bombs, at a given x,y coordinate, in the minefield
+int adjacent_flags(int y, int x)
+{
+	int adj = 0;
 
-void reveal_adj_to_zero(int y, int x, int p)
+	if (           y > 0   && minefield[y-1][x  ] == FLAGGED) ++adj;	// ABOVE
+	if (x < w-1 && y > 0   && minefield[y-1][x+1] == FLAGGED) ++adj;	// ABOVE + RIGHT
+	if (x < w-1            && minefield[y  ][x+1] == FLAGGED) ++adj;	// RIGHT
+	if (x < w-1 && y < h-1 && minefield[y+1][x+1] == FLAGGED) ++adj;	// DOWN + RIGHT 
+	if (           y < h-1 && minefield[y+1][x  ] == FLAGGED) ++adj;	// DOWN
+	if (x > 0   && y < h-1 && minefield[y+1][x-1] == FLAGGED) ++adj;	// DOWN + LEFT
+	if (x > 0              && minefield[y  ][x-1] == FLAGGED) ++adj;	// LEFT
+	if (x > 0   && y > 0   && minefield[y-1][x-1] == FLAGGED) ++adj;	// LEFT + UP
+
+	return adj;
+}
+
+void flag_reveal(int y, int x)
+{
+	if (           y > 0  ) { // ABOVE
+		if (gamefield[y-1][x] != FLAGGED)
+			step(y-1, x);
+	}
+	if (x < w-1 && y > 0  ) { // ABOVE + RIGHT
+		if (gamefield[y-1][x+1] != FLAGGED)
+			step(y-1, x+1);
+	}
+	if (x < w-1          ) { // RIGHT
+		if (gamefield[y][x+1] != FLAGGED)
+			step(y  , x+1);
+	}
+	if (x < w-1 && y < h-1) { // DOWN + RIGHT 
+		if (gamefield[y+1][x+1] != FLAGGED)
+			step(y+1, x+1);
+	}
+	if (           y < h-1) { // DOWN
+		if (gamefield[y+1][x] != FLAGGED)
+			step(y+1, x);
+	}
+	if (x > 0   && y < h-1) { // DOWN + LEFT
+		if (gamefield[y+1][x-1] != FLAGGED)
+			step(y+1, x-1);
+	}
+	if (x > 0                ) { // LEFT
+		if (gamefield[y][x-1] != FLAGGED)
+			step(y  , x-1);
+	}
+	if (x > 0   && y > 0  ) { // LEFT + UP
+		if (gamefield[y-1][x-1] != FLAGGED)
+			step(y-1, x-1);
+	}
+
+	//UH OH OH NO OH NO
+}
+
+int zchecker(int y, int x)
+{
+	if (!zcheck[y][x]) {
+		zcheck[y][x] = 1;
+		step(y, x);
+	}
+}
+
+void reveal_adj_to_zero(int y, int x)
 {
 	//So, I think I figured out what the problem is.
 	//I think the problem is that I am testing a cell, then that cell tests the cell above it, then the cell above it tests the cell below it, which is infinite regression...
 	//Maybe I can stop this, by implementing a THIRD array, which checks which cells have already been zerochecked... ????
 
-
 	if (gamefield[y][x] >= 1 && gamefield[y][x] <= 9) 
-		die("wtf???");
+		die("???");
 
 	gamefield[y][x] = EMPTY;
 
 	
 	if (           y > 0  ) { // ABOVE
-		step(y-1, x, 0);
+		zchecker(y-1, x);
 		printf("ABOVE");
 	}
 	if (x < w-1 && y > 0  ) { // ABOVE + RIGHT
-		step(y-1, x+1, 0);
+		zchecker(y-1, x+1);
 		printf("ABOVE+RIGHT");
 	}
 	if (x < w-1          ) { // RIGHT
-		step(y  , x+1, 0);
+		zchecker(y  , x+1);
 		printf("RIGHT");
 	}
 	if (x < w-1 && y < h-1) { // DOWN + RIGHT 
-		step(y+1, x+1, 0);
+		zchecker(y+1, x+1);
 		printf("DOWN+RIGHT");
 	}
-	if (              y < h-1) { // DOWN
-		step(y+1, x, 0);
+	if (           y < h-1) { // DOWN
+		zchecker(y+1, x);
 		printf("DOWN");
 	}
 	if (x > 0   && y < h-1) { // DOWN + LEFT
-		step(y+1, x-1, 0);
+		zchecker(y+1, x-1);
 		printf("DOWN+LEFT");
 	}
 	if (x > 0                ) { // LEFT
-		step(y  , x-1, 0);
+		zchecker(y  , x-1);
 		printf("LEFT");
 	}
 	if (x > 0   && y > 0  ) { // LEFT + UP
-		step(y-1, x-1, 0);
+		zchecker(y-1, x-1);
 		printf("LEFT+UP");
 	}
 }
 
 ////THIS FUNCTION SHOULD NOT GO HERE BUT I DON'T KNOW WHERE TO PUT IT 
-void step(int y, int x, int p)
+void step(int y, int x)
 {
 	int i = 0;
 
 	if (minefield[y][x])	//BOMB
 		//gameover();
 		die("gameover!");
-	else if (i = adjacent_bombs(y, x))	//if any adjacent bombs
-		gamefield[y][x] = i;	//put double-click here?
-	else {				//ZERO ADJACENT BOMBS
+	else if (i = adjacent_bombs(y, x)) {	//if any adjacent bombs
+		if (gamefield[y][x] == i)
+			if (adjacent_flags(y, x) == gamefield[y][x])
+				flag_reveal(y, x); //MIGHT THIS CAUSE A CASCADE BECAUSE STEP IS RECURSIVE??? IF SO, DO I CARE?
+		else
+			gamefield[y][x] = i;	//put double-click here?
+	} else {				//ZERO ADJACENT BOMBS
 		//gamefield[y][x] = EMPTY;
-		reveal_adj_to_zero(y, x, p);
+		reveal_adj_to_zero(y, x);
 	}
 }
 
@@ -664,7 +752,7 @@ void process_keypress() {
 			break;
 
 		case ' ':
-			step(T.cy, T.cx, TRUE);
+			step(T.cy, T.cx);
 			break;
 
 		case 'f':
