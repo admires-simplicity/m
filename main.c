@@ -51,6 +51,12 @@ int minefield[16][30];
 int gamefield[16][30];
 //array for space checking DESCRIBE THIS BETTER
 int zcheck[16][30];
+//arr for flag checking ...
+int fcheck[16][30];
+
+//array for holding things
+int holding[16][30];
+
 
 int generation = 1;	//0 = random, 1 = friendly
 
@@ -105,8 +111,8 @@ void initialize_fields()
 	for (int i = 0; i < h; ++i)
 		for (int j = 0; j < w; ++j) {
 			minefield[i][j] = 0;
-			gamefield[i][j] = OFF;	//init gamefield
-			zcheck[i][j] =  0;
+			gamefield[i][j] = holding[i][j] = OFF;	//init gamefield	//SHOULD HOLDING BE HERE?
+			zcheck[i][j] = fcheck[i][j] =  0;
 		}
 
 	if (generation == 0)
@@ -453,8 +459,11 @@ void draw_gamefield(struct abuf *ab)
 	char buf[2]; //size for one char and null byte			//AT SOME POINT THIS SHOULD BE REPLACED WITH A FUNCTION TO WRITE CHARS TO SCREEN
 	int z;
 
+	//abAppend(ab, "\x1b[45;5;231m", 11);
+
 	for (int i = 0; i < h; ++i) {
 		for (int j = 0; j < w; ++j) {
+			abAppend(ab, " ", 1);
 			switch (gamefield[i][j]) {
 				case OFF:
 					abAppend(ab, "#", 1);
@@ -472,6 +481,7 @@ void draw_gamefield(struct abuf *ab)
 					abAppend(ab, "?", 1);
 					break;
 				case 0:
+					die("Sorry pal, the 0 is deprecated, LOL. Alternatively, i might switch everything to 0 later... LOL");
 					abAppend(ab, "#", 1);
 					break;
 				default:
@@ -479,9 +489,9 @@ void draw_gamefield(struct abuf *ab)
 					//vibgyor
 					//v b y r i g o
 					if (gamefield[i][j] == 1)
-						abAppend(ab, "\x1b[38;5;198m", 11);
+						abAppend(ab, "\x1b[38;5;200m", 11);
 					else if (gamefield[i][j] == 2)
-						abAppend(ab, "\x1b[38;5;20m", 10);
+						abAppend(ab, "\x1b[38;5;33m", 10);
 					else if (gamefield[i][j] == 3)
 						abAppend(ab, "\x1b[38;5;11m", 10);
 					else if (gamefield[i][j] == 4)
@@ -505,6 +515,8 @@ void draw_gamefield(struct abuf *ab)
 		abAppend(ab, "\r\n", 2);
 	}
 
+
+	//abAppend(ab, "\x1b[45;5;0m", 9);
 
 }
 
@@ -544,56 +556,67 @@ void refresh_screen() {
 void step(int y, int x);
 void reveal_adj_to_zero(int y, int x);
 
-//Return the number of adjacent bombs, at a given x,y coordinate, in the minefield
+//Return the number of adjacent flags, at a given x,y coordinate, in the gamefield
 int adjacent_flags(int y, int x)
 {
 	int adj = 0;
 
-	if (           y > 0   && minefield[y-1][x  ] == FLAGGED) ++adj;	// ABOVE
-	if (x < w-1 && y > 0   && minefield[y-1][x+1] == FLAGGED) ++adj;	// ABOVE + RIGHT
-	if (x < w-1            && minefield[y  ][x+1] == FLAGGED) ++adj;	// RIGHT
-	if (x < w-1 && y < h-1 && minefield[y+1][x+1] == FLAGGED) ++adj;	// DOWN + RIGHT 
-	if (           y < h-1 && minefield[y+1][x  ] == FLAGGED) ++adj;	// DOWN
-	if (x > 0   && y < h-1 && minefield[y+1][x-1] == FLAGGED) ++adj;	// DOWN + LEFT
-	if (x > 0              && minefield[y  ][x-1] == FLAGGED) ++adj;	// LEFT
-	if (x > 0   && y > 0   && minefield[y-1][x-1] == FLAGGED) ++adj;	// LEFT + UP
+	if (           y > 0   && gamefield[y-1][x  ] == FLAGGED) ++adj;	// ABOVE
+	if (x < w-1 && y > 0   && gamefield[y-1][x+1] == FLAGGED) ++adj;	// ABOVE + RIGHT
+	if (x < w-1            && gamefield[y  ][x+1] == FLAGGED) ++adj;	// RIGHT
+	if (x < w-1 && y < h-1 && gamefield[y+1][x+1] == FLAGGED) ++adj;	// DOWN + RIGHT 
+	if (           y < h-1 && gamefield[y+1][x  ] == FLAGGED) ++adj;	// DOWN
+	if (x > 0   && y < h-1 && gamefield[y+1][x-1] == FLAGGED) ++adj;	// DOWN + LEFT
+	if (x > 0              && gamefield[y  ][x-1] == FLAGGED) ++adj;	// LEFT
+	if (x > 0   && y > 0   && gamefield[y-1][x-1] == FLAGGED) ++adj;	// LEFT + UP
 
 	return adj;
 }
 
+//checks if this spot has been checked for having a flag
+void fchecker(int y, int x)
+{
+	if (!fcheck[y][x]) {
+		fcheck[y][x] = 1;
+		step(y, x);
+	}
+}
+
 void flag_reveal(int y, int x)
 {
+	//I THINK ITS RECURSIVE, AND I GOTTA ADD ANOTHER ZCHECKER
+	
 	if (           y > 0  ) { // ABOVE
 		if (gamefield[y-1][x] != FLAGGED)
-			step(y-1, x);
+			fchecker(y-1, x);
 	}
 	if (x < w-1 && y > 0  ) { // ABOVE + RIGHT
 		if (gamefield[y-1][x+1] != FLAGGED)
-			step(y-1, x+1);
+			fchecker(y-1, x+1);
 	}
 	if (x < w-1          ) { // RIGHT
 		if (gamefield[y][x+1] != FLAGGED)
-			step(y  , x+1);
+			fchecker(y  , x+1);
 	}
 	if (x < w-1 && y < h-1) { // DOWN + RIGHT 
 		if (gamefield[y+1][x+1] != FLAGGED)
-			step(y+1, x+1);
+			fchecker(y+1, x+1);
 	}
 	if (           y < h-1) { // DOWN
 		if (gamefield[y+1][x] != FLAGGED)
-			step(y+1, x);
+			fchecker(y+1, x);
 	}
 	if (x > 0   && y < h-1) { // DOWN + LEFT
 		if (gamefield[y+1][x-1] != FLAGGED)
-			step(y+1, x-1);
+			fchecker(y+1, x-1);
 	}
 	if (x > 0                ) { // LEFT
 		if (gamefield[y][x-1] != FLAGGED)
-			step(y  , x-1);
+			fchecker(y  , x-1);
 	}
 	if (x > 0   && y > 0  ) { // LEFT + UP
 		if (gamefield[y-1][x-1] != FLAGGED)
-			step(y-1, x-1);
+			fchecker(y-1, x-1);
 	}
 
 	//UH OH OH NO OH NO
@@ -662,9 +685,11 @@ void step(int y, int x)
 		//gameover();
 		die("gameover!");
 	else if (i = adjacent_bombs(y, x)) {	//if any adjacent bombs
-		if (gamefield[y][x] == i)		//I THINK IMPLEMENTING THIS IS WHAT BROKE THIS
-			if (adjacent_flags(y, x) == gamefield[y][x])
+		if (gamefield[y][x] == i) {		//I THINK IMPLEMENTING THIS IS WHAT BROKE THIS
+			if (adjacent_flags(y, x) == gamefield[y][x]) {
 				flag_reveal(y, x); //MIGHT THIS CAUSE A CASCADE BECAUSE STEP IS RECURSIVE??? IF SO, DO I CARE?
+			}
+		}
 		else
 			gamefield[y][x] = i;	//put double-click here?
 	} else {				//ZERO ADJACENT BOMBS
@@ -673,14 +698,39 @@ void step(int y, int x)
 	}
 }
 
-void flag_coord()
+//SHOULD THIS RESET THE FCHECK POSITION OF THE FLAG?
+void toggle_flag()
 {
-	gamefield[T.cy][T.cx] = FLAGGED;
+	if (gamefield[T.cy][T.cx] == FLAGGED)
+		gamefield[T.cy][T.cx] = OFF;
+	else if (gamefield[T.cy][T.cx] == OFF || gamefield[T.cy][T.cx] == MARKED)
+		gamefield[T.cy][T.cx] = FLAGGED;
+
+//	int i;
+//	
+//	
+//
+//	if (gamefield[T.cy][T.cx] == FLAGGED)
+//	{
+//		if ((i = adjacent_bombs(T.cy, T.cx)) && !minefield[T.cy][T.cx])
+//		{
+//			gamefield[T.cy][T.cx] = i;
+//		}
+//		else if (zcheck[T.cy][T.cx])
+//			gamefield[T.cy][T.cx] = EMPTY;
+//		else
+//			gamefield[T.cy][T.cx] = 0;
+//	}
+//	else
+//		gamefield[T.cy][T.cx] = FLAGGED;
 }
 
-void mark_coord()
+void toggle_marked()
 {
-	gamefield[T.cy][T.cx] = MARKED;
+	if (gamefield[T.cy][T.cx] == MARKED)
+		gamefield[T.cy][T.cx] = OFF;
+	else if (gamefield[T.cy][T.cx] == OFF || gamefield[T.cy][T.cx] == FLAGGED)
+		gamefield[T.cy][T.cx] = MARKED;
 }
 
 /*** INPUT ***/
@@ -756,11 +806,12 @@ void process_keypress() {
 			break;
 
 		case 'f':
-			flag_coord();
+		case 'F':
+			toggle_flag();
 			break;
 
 		case 'd':
-			mark_coord();
+			toggle_marked();
 			break;
 
 		default:
