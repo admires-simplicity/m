@@ -9,6 +9,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "termhandling.h"
+
 /*** DEFINITIONS ***/
 #define CTRL_KEY(k)	((k) & 0x1f) //binary and with lowest 5 bits (decimal 31), therefor, ON bits in lowest 5 bits, which works because 'a' = 1100001 (97), and ctrl+a = 1
 
@@ -32,13 +34,24 @@ enum states {
 
 /*** DATA ***/
 struct termhandler { //struct for handling terminal variables
-	int cx, cy;
+	int cx, cy;	//coordinates on the terminal
 	int screenrows;
 	int screencols;
-	struct termios orig_termios;
+	//struct termios orig_termios;
 };
 
 struct termhandler T;
+
+/*I think if I put the minefield variables inside this gamehandler, I would be able to initialize them by variables?
+ * Maybe, But I still don't know why that'd be better than just initializing them by variables outside everything...*/
+/*struct for handling position by game cell, rather than position by terminal cell*/
+struct gamehandler { 
+	int cx, cy;	//coordinates in the game
+	//int h;
+	//int w;
+	//int b;
+} G;
+
 
 //minefield variables
 int h;
@@ -54,17 +67,11 @@ int zcheck[16][30];
 //arr for flag checking ...
 int fcheck[16][30];
 
-//array for holding things
-int holding[16][30];
 
 
 int generation = 1;	//0 = random, 1 = friendly
 
 /*** FUNCTION PROTOTYPES ***/
-void enable_raw_mode();
-void disable_raw_mode();
-void die (const char*);
-
 int read_key();
 void process_keypress();
 void refresh_screen();
@@ -111,7 +118,7 @@ void initialize_fields()
 	for (int i = 0; i < h; ++i)
 		for (int j = 0; j < w; ++j) {
 			minefield[i][j] = 0;
-			gamefield[i][j] = holding[i][j] = OFF;	//init gamefield	//SHOULD HOLDING BE HERE?
+			gamefield[i][j] = OFF;	//init gamefield
 			zcheck[i][j] = fcheck[i][j] =  0;
 		}
 
@@ -194,47 +201,47 @@ void friendly_generate_minefield()
 
 	//ADJACENT MASK
 	int x = 0;
-	minefield[T.cy][T.cx] = 1;
-	position[x] = coord_to_n(T.cy, T.cx);
+	minefield[G.cy][G.cx] = 1;
+	position[x] = coord_to_n(G.cy, G.cx);
 	++x;
-	if (              T.cy > 0  ) {
-		minefield[T.cy-1][T.cx  ] = 1;	// ABOVE
-		position[x] = coord_to_n(T.cy-1, T.cx);
+	if (              G.cy > 0  ) {
+		minefield[G.cy-1][G.cx  ] = 1;	// ABOVE
+		position[x] = coord_to_n(G.cy-1, G.cx);
 		++x;
 	}
-	if (T.cx < w-1 && T.cy > 0  ) {
-		minefield[T.cy-1][T.cx+1] = 1;	// ABOVE + RIGHT
-		position[x] = coord_to_n(T.cy-1, T.cx+1);
+	if (G.cx < w-1 && G.cy > 0  ) {
+		minefield[G.cy-1][G.cx+1] = 1;	// ABOVE + RIGHT
+		position[x] = coord_to_n(G.cy-1, G.cx+1);
 		++x;
 	}
-	if (T.cx < w-1              ) {
-		minefield[T.cy  ][T.cx+1] = 1;	// RIGHT
-		position[x] = coord_to_n(T.cy, T.cx+1);
+	if (G.cx < w-1              ) {
+		minefield[G.cy  ][G.cx+1] = 1;	// RIGHT
+		position[x] = coord_to_n(G.cy, G.cx+1);
 		++x;
 	}
-	if (T.cx < w-1 && T.cy < h-1) {
-		minefield[T.cy+1][T.cx+1] = 1;	// DOWN + RIGHT 
-		position[x] = coord_to_n(T.cy+1, T.cx+1);
+	if (G.cx < w-1 && G.cy < h-1) {
+		minefield[G.cy+1][G.cx+1] = 1;	// DOWN + RIGHT 
+		position[x] = coord_to_n(G.cy+1, G.cx+1);
 		++x;
 	}
-	if (              T.cy < h-1) {
-		minefield[T.cy+1][T.cx  ] = 1;	// DOWN
-		position[x] = coord_to_n(T.cy+1, T.cx);
+	if (              G.cy < h-1) {
+		minefield[G.cy+1][G.cx  ] = 1;	// DOWN
+		position[x] = coord_to_n(G.cy+1, G.cx);
 		++x;
 	}
-	if (T.cx > 0   && T.cy < h-1) {
-		minefield[T.cy+1][T.cx-1] = 1;	// DOWN + LEFT
-		position[x] = coord_to_n(T.cy+1, T.cx-1);
+	if (G.cx > 0   && G.cy < h-1) {
+		minefield[G.cy+1][G.cx-1] = 1;	// DOWN + LEFT
+		position[x] = coord_to_n(G.cy+1, G.cx-1);
 		++x;
 	}
-	if (T.cx > 0                ) {
-		minefield[T.cy  ][T.cx-1] = 1;	// LEFT
-		position[x] = coord_to_n(T.cy, T.cx-1);
+	if (G.cx > 0                ) {
+		minefield[G.cy  ][G.cx-1] = 1;	// LEFT
+		position[x] = coord_to_n(G.cy, G.cx-1);
 		++x;
 	}
-	if (T.cx > 0   && T.cy > 0  ) {
-		minefield[T.cy-1][T.cx-1] = 1;	// LEFT + UP
-		position[x] = coord_to_n(T.cy-1, T.cx-1);
+	if (G.cx > 0   && G.cy > 0  ) {
+		minefield[G.cy-1][G.cx-1] = 1;	// LEFT + UP
+		position[x] = coord_to_n(G.cy-1, G.cx-1);
 		++x;
 	}
 
@@ -276,15 +283,15 @@ void friendly_generate_minefield()
 	}
 
 	//ADJACENT UNMASK
-	minefield[T.cy][T.cx] = 0;
-	if (              T.cy > 0  ) minefield[T.cy-1][T.cx  ] = 0;	// ABOVE
-	if (T.cx < w-1 && T.cy > 0  ) minefield[T.cy-1][T.cx+1] = 0;	// ABOVE + RIGHT
-	if (T.cx < w-1              ) minefield[T.cy  ][T.cx+1] = 0;	// RIGHT
-	if (T.cx < w-1 && T.cy < h-1) minefield[T.cy+1][T.cx+1] = 0;	// DOWN + RIGHT 
-	if (              T.cy < h-1) minefield[T.cy+1][T.cx  ] = 0;	// DOWN
-	if (T.cx > 0   && T.cy < h-1) minefield[T.cy+1][T.cx-1] = 0;	// DOWN + LEFT
-	if (T.cx > 0                ) minefield[T.cy  ][T.cx-1] = 0;	// LEFT
-	if (T.cx > 0   && T.cy > 0  ) minefield[T.cy-1][T.cx-1] = 0;	// LEFT + UP
+	minefield[G.cy][G.cx] = 0;
+	if (              G.cy > 0  ) minefield[G.cy-1][G.cx  ] = 0;	// ABOVE
+	if (G.cx < w-1 && G.cy > 0  ) minefield[G.cy-1][G.cx+1] = 0;	// ABOVE + RIGHT
+	if (G.cx < w-1              ) minefield[G.cy  ][G.cx+1] = 0;	// RIGHT
+	if (G.cx < w-1 && G.cy < h-1) minefield[G.cy+1][G.cx+1] = 0;	// DOWN + RIGHT 
+	if (              G.cy < h-1) minefield[G.cy+1][G.cx  ] = 0;	// DOWN
+	if (G.cx > 0   && G.cy < h-1) minefield[G.cy+1][G.cx-1] = 0;	// DOWN + LEFT
+	if (G.cx > 0                ) minefield[G.cy  ][G.cx-1] = 0;	// LEFT
+	if (G.cx > 0   && G.cy > 0  ) minefield[G.cy-1][G.cx-1] = 0;	// LEFT + UP
 
 	//after req'd num bombs finished, not enough bombs -> error
 	if (bombs_placed != b)
@@ -294,8 +301,8 @@ void friendly_generate_minefield()
 
 //initialize minefields in T struct
 void init_game() {
-	T.cx = 0;
-	T.cy = 0;
+	T.cx = G.cx = 0;
+	T.cy = G.cy = 0;
 
 	//SET MINEFIELD VARIABLES
 	h = 16;
@@ -303,10 +310,14 @@ void init_game() {
 	b = (int) ((float)h * (float)w) * 0.2125;
 
 	//center cursor in minefield (might have to move this later)
-	T.cx = (w-1)/2;
+	T.cx = (w-1);
 	T.cy = (h-1)/2;
 
-	srand(time(NULL));
+	G.cx = (w-1)/2;
+	G.cy = (h-1)/2;
+
+
+	srand(time(NULL)); //seed random generator
 
 	initialize_fields();
 
@@ -314,38 +325,8 @@ void init_game() {
 }
 
 /*** TERMINAL ***/
-//write error message to screen and exit unsucessfully
-void die(const char *s) {
-	write(STDOUT_FILENO, "\x1b[2J", 4);	//clear screen
-	write(STDOUT_FILENO, "\x1b[H", 3);	//position cursor 1,1
-
-	disable_raw_mode(); //we'd disable it when we exited, but then the perror formatting would be messed up
-
-	perror(s);
-	exit(1);
-}
-
-//edit termios struct, so terminal behaves how I want it to
-void enable_raw_mode() {
-	if (tcgetattr(STDIN_FILENO, &T.orig_termios) == -1) die("tcgetattr");	//get termios struct
-	atexit(disable_raw_mode);
-
-	struct termios raw = T.orig_termios;
-	raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-	raw.c_oflag &= ~(OPOST);
-	raw.c_cflag |= (CS8);
-	raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG); //bin AND on c_lflag bitminefield, where echo, icanon bits are 0 , but all others 1, i.e. turn specified options off, and keep others as they are
-	raw.c_cc[VMIN] = 0;	//control characters minefield
-	raw.c_cc[VTIME] = 1;
 
 
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw); //set termios struct
-}
-
-//set the termios struct to be same as it was when program executed
-void disable_raw_mode() {
-	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &T.orig_termios) == -1) die ("tcsetattr");
-}
 
 //wait for one keypress, and return it
 int read_key() {
@@ -376,38 +357,6 @@ int read_key() {
 	}
 }
 
-int get_cursor_position(int *rows, int *cols) {
-	char buf[32];
-	unsigned int i = 0;
-
-	if (write(STDOUT_FILENO, "\x1b[6n", 4) != 4) return -1;
-
-	while (i < sizeof(buf) - 1) {
-		if (read(STDIN_FILENO, &buf[i], 1) != 1) break;
-		if (buf[i] == 'R') break;
-		++i;
-	}
-	buf[i] = '\0';
-
-	if (buf[0] != '\x1b' || buf[1] != '[') return -1;
-	if (sscanf(&buf[2], "%d;%d", rows, cols) != 2) return -1;
-
-	return 0;
-}
-
-int get_win_size(int *rows, int *cols) {
-	struct winsize ws;
-
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
-		if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12) return -1;
-		return get_cursor_position(rows, cols);
-		return -1;
-	} else {
-		*cols = ws.ws_col;
-		*rows = ws.ws_row;
-		return 0;
-	}
-}
 
 /*** APPEND BUFFER ***/
 struct abuf {
@@ -539,12 +488,12 @@ void refresh_screen() {
 	//draw_rows(&ab);
 	//draw_minefield(&ab);
 	draw_gamefield(&ab);
-	char bug[20];
-	snprintf(bug, sizeof(bug), "nbombs == %d\r\n", count_bombs());
-	abAppend(&ab, bug, strlen(bug));
+	//char bug[20];
+	//snprintf(bug, sizeof(bug), "nbombs == %d\r\n", count_bombs());
+	//abAppend(&ab, bug, strlen(bug));
 	
 	char buf[32];
-	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", T.cy + 1, T.cx + 1); //write move command to H buf, with values converted from 0indexed to 1indexed
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", T.cy + 1, T.cx + 1); //write move cursor command to buf, with values converted from 0indexed to 1indexed
 	abAppend(&ab, buf, strlen(buf));
 
 	abAppend(&ab, "\x1b[?25h", 6); //show cursor
@@ -632,47 +581,48 @@ int zchecker(int y, int x)
 
 void reveal_adj_to_zero(int y, int x)
 {
+	////I THINK THE PROBLEM I'M TALKING ABOUT HERE IS ALREADY FIXED, BUT IF SO, WHY DIDN'T I DELETE IT?????
 	//So, I think I figured out what the problem is.
 	//I think the problem is that I am testing a cell, then that cell tests the cell above it, then the cell above it tests the cell below it, which is infinite regression...
 	//Maybe I can stop this, by implementing a THIRD array, which checks which cells have already been zerochecked... ????
 
-	if (gamefield[y][x] >= 1 && gamefield[y][x] <= 9) 
+	if (gamefield[y][x] >= 1 && gamefield[y][x] <= 9) //adj_to_zero was called on a nonzero space...
 		die("???");
 
-	gamefield[y][x] = EMPTY;
+	gamefield[y][x] = EMPTY;	//set this zero spot as zero
 
 	
 	if (           y > 0  ) { // ABOVE
 		zchecker(y-1, x);
-		printf("ABOVE");
+		//printf("ABOVE");
 	}
 	if (x < w-1 && y > 0  ) { // ABOVE + RIGHT
 		zchecker(y-1, x+1);
-		printf("ABOVE+RIGHT");
+		//printf("ABOVE+RIGHT");
 	}
 	if (x < w-1          ) { // RIGHT
 		zchecker(y  , x+1);
-		printf("RIGHT");
+		//printf("RIGHT");
 	}
 	if (x < w-1 && y < h-1) { // DOWN + RIGHT 
 		zchecker(y+1, x+1);
-		printf("DOWN+RIGHT");
+		//printf("DOWN+RIGHT");
 	}
 	if (           y < h-1) { // DOWN
 		zchecker(y+1, x);
-		printf("DOWN");
+		//printf("DOWN");
 	}
 	if (x > 0   && y < h-1) { // DOWN + LEFT
 		zchecker(y+1, x-1);
-		printf("DOWN+LEFT");
+		//printf("DOWN+LEFT");
 	}
 	if (x > 0                ) { // LEFT
 		zchecker(y  , x-1);
-		printf("LEFT");
+		//printf("LEFT");
 	}
 	if (x > 0   && y > 0  ) { // LEFT + UP
 		zchecker(y-1, x-1);
-		printf("LEFT+UP");
+		//printf("LEFT+UP");
 	}
 }
 
@@ -680,6 +630,8 @@ void reveal_adj_to_zero(int y, int x)
 void step(int y, int x)
 {
 	int i = 0;
+	
+	//x = x / 2;	//compensation for extra space between cells
 
 	if (minefield[y][x])	//BOMB
 		//gameover();
@@ -699,38 +651,38 @@ void step(int y, int x)
 }
 
 //SHOULD THIS RESET THE FCHECK POSITION OF THE FLAG?
-void toggle_flag()
+void toggle_flag()	//set this zero spot as zero
 {
-	if (gamefield[T.cy][T.cx] == FLAGGED)
-		gamefield[T.cy][T.cx] = OFF;
-	else if (gamefield[T.cy][T.cx] == OFF || gamefield[T.cy][T.cx] == MARKED)
-		gamefield[T.cy][T.cx] = FLAGGED;
+	if (gamefield[G.cy][G.cx] == FLAGGED)
+		gamefield[G.cy][G.cx] = OFF;
+	else if (gamefield[G.cy][G.cx] == OFF || gamefield[G.cy][G.cx] == MARKED)
+		gamefield[G.cy][G.cx] = FLAGGED;
 
 //	int i;
 //	
 //	
 //
-//	if (gamefield[T.cy][T.cx] == FLAGGED)
+//	if (gamefield[G.cy][G.cx] == FLAGGED)
 //	{
-//		if ((i = adjacent_bombs(T.cy, T.cx)) && !minefield[T.cy][T.cx])
+//		if ((i = adjacent_bombs(G.cy, G.cx)) && !minefield[G.cy][G.cx])
 //		{
-//			gamefield[T.cy][T.cx] = i;
+//			gamefield[G.cy][G.cx] = i;
 //		}
-//		else if (zcheck[T.cy][T.cx])
-//			gamefield[T.cy][T.cx] = EMPTY;
+//		else if (zcheck[G.cy][G.cx])
+//			gamefield[G.cy][G.cx] = EMPTY;
 //		else
-//			gamefield[T.cy][T.cx] = 0;
+//			gamefield[G.cy][G.cx] = 0;
 //	}
 //	else
-//		gamefield[T.cy][T.cx] = FLAGGED;
+//		gamefield[G.cy][G.cx] = FLAGGED;
 }
 
 void toggle_marked()
 {
-	if (gamefield[T.cy][T.cx] == MARKED)
-		gamefield[T.cy][T.cx] = OFF;
-	else if (gamefield[T.cy][T.cx] == OFF || gamefield[T.cy][T.cx] == FLAGGED)
-		gamefield[T.cy][T.cx] = MARKED;
+	if (gamefield[G.cy][G.cx] == MARKED)
+		gamefield[G.cy][G.cx] = OFF;
+	else if (gamefield[G.cy][G.cx] == OFF || gamefield[G.cy][G.cx] == FLAGGED)
+		gamefield[G.cy][G.cx] = MARKED;
 }
 
 /*** INPUT ***/
@@ -738,25 +690,31 @@ void move_cursor(int key) {
 	switch (key) {
 		case ARROW_LEFT:
 		case 'h':
-			if (T.cx != 0) {
+			if (T.cx != 1) {
+				--G.cx;
+				--T.cx;
 				--T.cx;
 			}
 			break;
 		case ARROW_RIGHT:
 		case 'l':
-			if (T.cx != w - 1) {
-			 ++T.cx;
+			if (T.cx != w*2 - 1) {
+				++G.cx;
+			 	++T.cx;
+			 	++T.cx;
 			}
 			break;
 		case ARROW_UP:
 		case 'k':
 			if (T.cy != 0) {
+				--G.cy;
 				--T.cy;
 			}
 			break;
 		case ARROW_DOWN:
 		case 'j':
 			if (T.cy != h - 1) {
+				++G.cy;
 				++T.cy;
 			}
 			break;
@@ -779,7 +737,7 @@ void process_keypress() {
 
 			
 			write(STDOUT_FILENO, "\x1b[17;1H", 7);	//position cursor 1,1
-			atexit(gen_rep);
+			//atexit(gen_rep);
 			exit (0);
 			break;
 		//case 'a':
@@ -802,7 +760,7 @@ void process_keypress() {
 			break;
 
 		case ' ':
-			step(T.cy, T.cx);
+			step(G.cy, G.cx);
 			break;
 
 		case 'f':
