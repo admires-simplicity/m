@@ -433,7 +433,7 @@ void draw_gamefield(struct abuf *ab)
 					die("Sorry pal, the 0 is deprecated, LOL. Alternatively, i might switch everything to 0 later... LOL");
 					abAppend(ab, "#", 1);
 					break;
-				default:
+				default:	//PRINTING NUMBERS
 					//roygbiv
 					//vibgyor
 					//v b y r i g o
@@ -469,6 +469,7 @@ void draw_gamefield(struct abuf *ab)
 
 }
 
+//THIS IS DEPRECATED AND WAS ONLY EVER USED FOR DEBUGGING, DELETE IN FINAL
 int count_bombs()
 {
 	int count = 0;
@@ -522,12 +523,33 @@ int adjacent_flags(int y, int x)
 	return adj;
 }
 
+void reveal_cell(int y, int x);	//BAD PLACE FOR FUNCTION DECLARATION
+
 //checks if this spot has been checked for having a flag
 void fchecker(int y, int x)
 {
 	if (!fcheck[y][x]) {
 		fcheck[y][x] = 1;
+
 		step(y, x);
+
+		//int i = 0;
+		//
+		////x = x / 2;	//compensation for extra space between cells
+
+		//if (minefield[y][x])	//BOMB
+		//	//gameover();
+		//	die("gameover!");
+		//else if (i = adjacent_bombs(y, x)) {	//if any adjacent bombs
+		//	if (gamefield[y][x] == i)
+		//		reveal_cell(y, x);
+		//} else {				//ZERO ADJACENT BOMBS
+		//	//gamefield[y][x] = EMPTY;
+		//	reveal_adj_to_zero(y, x);
+		//}
+
+
+
 	}
 }
 
@@ -567,8 +589,6 @@ void flag_reveal(int y, int x)
 		if (gamefield[y-1][x-1] != FLAGGED)
 			fchecker(y-1, x-1);
 	}
-
-	//UH OH OH NO OH NO
 }
 
 int zchecker(int y, int x)
@@ -581,13 +601,11 @@ int zchecker(int y, int x)
 
 void reveal_adj_to_zero(int y, int x)
 {
-	////I THINK THE PROBLEM I'M TALKING ABOUT HERE IS ALREADY FIXED, BUT IF SO, WHY DIDN'T I DELETE IT?????
-	//So, I think I figured out what the problem is.
-	//I think the problem is that I am testing a cell, then that cell tests the cell above it, then the cell above it tests the cell below it, which is infinite regression...
-	//Maybe I can stop this, by implementing a THIRD array, which checks which cells have already been zerochecked... ????
-
 	if (gamefield[y][x] >= 1 && gamefield[y][x] <= 9) //adj_to_zero was called on a nonzero space...
-		die("???");
+		die("reveal_adj_to_zero: function called on a nonzero space");	//I think I should do the name with function pointers???
+
+	if (gamefield[y][x] == EMPTY)
+		return;
 
 	gamefield[y][x] = EMPTY;	//set this zero spot as zero
 
@@ -626,29 +644,64 @@ void reveal_adj_to_zero(int y, int x)
 	}
 }
 
+void reveal_cell(int y, int x)
+{
+	int i = adjacent_bombs(y, x);
+
+	if (i < 1 || i > 8)
+		die("reveal_cell: called on nonsensical cell");
+
+	gamefield[y][x] = i;	//REVEAL CELL
+}
+
 ////THIS FUNCTION SHOULD NOT GO HERE BUT I DON'T KNOW WHERE TO PUT IT 
 void step(int y, int x)
 {
-	int i = 0;
+	int i = adjacent_bombs(y, x);
 	
-	//x = x / 2;	//compensation for extra space between cells
-
 	if (minefield[y][x])	//BOMB
 		//gameover();
 		die("gameover!");
-	else if (i = adjacent_bombs(y, x)) {	//if any adjacent bombs
-		if (gamefield[y][x] == i) {		//I THINK IMPLEMENTING THIS IS WHAT BROKE THIS
+	else if (i) {	//if any adjacent bombs
+		if (gamefield[y][x] == i) {
 			if (adjacent_flags(y, x) == gamefield[y][x]) {
 				flag_reveal(y, x); //MIGHT THIS CAUSE A CASCADE BECAUSE STEP IS RECURSIVE??? IF SO, DO I CARE?
 			}
 		}
 		else
-			gamefield[y][x] = i;	//put double-click here?
+			reveal_cell(y, x);
 	} else {				//ZERO ADJACENT BOMBS
 		//gamefield[y][x] = EMPTY;
 		reveal_adj_to_zero(y, x);
 	}
 }
+
+void fstep(int y, int x)
+{
+	int i = adjacent_bombs(y, x);
+	
+	if (minefield[y][x])	//BOMB
+		die("gameover!");
+	else if (i) {	//if any adjacent bombs
+		if (gamefield[y][x] == i) {
+			if (adjacent_flags(y, x) == gamefield[y][x]) {
+				flag_reveal(y, x); //MIGHT THIS CAUSE A CASCADE BECAUSE STEP IS RECURSIVE??? IF SO, DO I CARE?
+			}
+		}
+		else
+			reveal_cell(y, x);
+	} else {				//ZERO ADJACENT BOMBS
+		//gamefield[y][x] = EMPTY;
+		reveal_adj_to_zero(y, x);
+	}
+}
+
+//step on adjacent cells which should be stepped on
+void cascade(int y, int x)
+{
+
+}
+
 
 //SHOULD THIS RESET THE FCHECK POSITION OF THE FLAG?
 void toggle_flag()	//set this zero spot as zero
