@@ -504,6 +504,7 @@ void refresh_screen() {
 }
 
 void step(int y, int x);
+void fstep(int y, int x);
 void reveal_adj_to_zero(int y, int x);
 
 //Return the number of adjacent flags, at a given x,y coordinate, in the gamefield
@@ -525,69 +526,41 @@ int adjacent_flags(int y, int x)
 
 void reveal_cell(int y, int x);	//BAD PLACE FOR FUNCTION DECLARATION
 
-//checks if this spot has been checked for having a flag
-void fchecker(int y, int x)
-{
-	if (!fcheck[y][x]) {
-		fcheck[y][x] = 1;
-
-		step(y, x);
-
-		//int i = 0;
-		//
-		////x = x / 2;	//compensation for extra space between cells
-
-		//if (minefield[y][x])	//BOMB
-		//	//gameover();
-		//	die("gameover!");
-		//else if (i = adjacent_bombs(y, x)) {	//if any adjacent bombs
-		//	if (gamefield[y][x] == i)
-		//		reveal_cell(y, x);
-		//} else {				//ZERO ADJACENT BOMBS
-		//	//gamefield[y][x] = EMPTY;
-		//	reveal_adj_to_zero(y, x);
-		//}
-
-
-
-	}
-}
-
 void flag_reveal(int y, int x)
 {
 	//I THINK ITS RECURSIVE, AND I GOTTA ADD ANOTHER ZCHECKER
 	
 	if (           y > 0  ) { // ABOVE
 		if (gamefield[y-1][x] != FLAGGED)
-			fchecker(y-1, x);
+			fstep(y-1, x);
 	}
 	if (x < w-1 && y > 0  ) { // ABOVE + RIGHT
 		if (gamefield[y-1][x+1] != FLAGGED)
-			fchecker(y-1, x+1);
+			fstep(y-1, x+1);
 	}
 	if (x < w-1          ) { // RIGHT
 		if (gamefield[y][x+1] != FLAGGED)
-			fchecker(y  , x+1);
+			fstep(y  , x+1);
 	}
 	if (x < w-1 && y < h-1) { // DOWN + RIGHT 
 		if (gamefield[y+1][x+1] != FLAGGED)
-			fchecker(y+1, x+1);
+			fstep(y+1, x+1);
 	}
 	if (           y < h-1) { // DOWN
 		if (gamefield[y+1][x] != FLAGGED)
-			fchecker(y+1, x);
+			fstep(y+1, x);
 	}
 	if (x > 0   && y < h-1) { // DOWN + LEFT
 		if (gamefield[y+1][x-1] != FLAGGED)
-			fchecker(y+1, x-1);
+			fstep(y+1, x-1);
 	}
 	if (x > 0                ) { // LEFT
 		if (gamefield[y][x-1] != FLAGGED)
-			fchecker(y  , x-1);
+			fstep(y  , x-1);
 	}
 	if (x > 0   && y > 0  ) { // LEFT + UP
 		if (gamefield[y-1][x-1] != FLAGGED)
-			fchecker(y-1, x-1);
+			fstep(y-1, x-1);
 	}
 }
 
@@ -659,20 +632,18 @@ void step(int y, int x)
 {
 	int i = adjacent_bombs(y, x);
 	
-	if (minefield[y][x])	//BOMB
-		//gameover();
+	if (minefield[y][x]) {
 		die("gameover!");
-	else if (i) {	//if any adjacent bombs
-		if (gamefield[y][x] == i) {
-			if (adjacent_flags(y, x) == gamefield[y][x]) {
-				flag_reveal(y, x); //MIGHT THIS CAUSE A CASCADE BECAUSE STEP IS RECURSIVE??? IF SO, DO I CARE?
+	} else {
+		if (i) {
+			if (gamefield[y][x] == i && adjacent_flags(y, x) == i) { //cell is unveiled and adj flags == adj bombs
+				flag_reveal(y, x);
+			} else {
+				reveal_cell(y, x);
 			}
+		} else {
+			reveal_adj_to_zero(y, x);
 		}
-		else
-			reveal_cell(y, x);
-	} else {				//ZERO ADJACENT BOMBS
-		//gamefield[y][x] = EMPTY;
-		reveal_adj_to_zero(y, x);
 	}
 }
 
@@ -680,19 +651,14 @@ void fstep(int y, int x)
 {
 	int i = adjacent_bombs(y, x);
 	
-	if (minefield[y][x])	//BOMB
+	if (minefield[y][x]) {
 		die("gameover!");
-	else if (i) {	//if any adjacent bombs
-		if (gamefield[y][x] == i) {
-			if (adjacent_flags(y, x) == gamefield[y][x]) {
-				flag_reveal(y, x); //MIGHT THIS CAUSE A CASCADE BECAUSE STEP IS RECURSIVE??? IF SO, DO I CARE?
-			}
-		}
-		else
+	} else {
+		if (i) {
 			reveal_cell(y, x);
-	} else {				//ZERO ADJACENT BOMBS
-		//gamefield[y][x] = EMPTY;
-		reveal_adj_to_zero(y, x);
+		} else {
+			reveal_adj_to_zero(y, x);
+		}
 	}
 }
 
