@@ -64,8 +64,6 @@ int minefield[16][30];
 int gamefield[16][30];
 //array for space checking DESCRIBE THIS BETTER
 int zcheck[16][30];
-//arr for flag checking ...
-int fcheck[16][30];
 
 
 
@@ -119,7 +117,7 @@ void initialize_fields()
 		for (int j = 0; j < w; ++j) {
 			minefield[i][j] = 0;
 			gamefield[i][j] = OFF;	//init gamefield
-			zcheck[i][j] = fcheck[i][j] =  0;
+			zcheck[i][j] = 0;
 		}
 
 	if (generation == 0)
@@ -409,6 +407,13 @@ void draw_gamefield(struct abuf *ab)
 	int z;
 
 	//abAppend(ab, "\x1b[45;5;231m", 11);
+	
+	
+	//SET BACKGROUND COLOR
+	abAppend(ab, "\x1b[48;5;235m", 11);
+	//SET FOREGROUND WHITE
+	abAppend(ab, "\x1b[38;5;15m", 10);
+
 
 	for (int i = 0; i < h; ++i) {
 		for (int j = 0; j < w; ++j) {
@@ -421,13 +426,17 @@ void draw_gamefield(struct abuf *ab)
 					abAppend(ab, "*", 1);
 					break;
 				case EMPTY:
-					abAppend(ab, ".", 1);
+					abAppend(ab, " ", 1);
 					break;
 				case FLAGGED:
+					abAppend(ab, "\x1b[38;5;14m", 10);
 					abAppend(ab, "!", 1);
+					abAppend(ab, "\x1b[38;5;15m", 10);
 					break;
 				case MARKED:
+					abAppend(ab, "\x1b[38;5;107m", 11);
 					abAppend(ab, "?", 1);
+					abAppend(ab, "\x1b[38;5;15m", 10);
 					break;
 				case 0:
 					die("Sorry pal, the 0 is deprecated, LOL. Alternatively, i might switch everything to 0 later... LOL");
@@ -457,13 +466,15 @@ void draw_gamefield(struct abuf *ab)
 					buf[0] = gamefield[i][j] + '0';
 					buf[1] = '\0';
 					abAppend(ab, buf, 1);
-					abAppend(ab, "\x1b[0m", 4);
+					//RESET FOREGROUND
+					abAppend(ab, "\x1b[38;5;15m", 10);
 					break;
 			}
 		}
 		abAppend(ab, "\r\n", 2);
 	}
 
+	abAppend(ab, "\x1b[48;5;0m", 9);
 
 	//abAppend(ab, "\x1b[45;5;0m", 9);
 
@@ -756,7 +767,7 @@ void process_keypress() {
 
 			
 			write(STDOUT_FILENO, "\x1b[17;1H", 7);	//position cursor 1,1
-			//atexit(gen_rep);
+			write(STDOUT_FILENO, "\x1b[0m", 4);	//reset colorsbA
 			exit (0);
 			break;
 		//case 'a':
