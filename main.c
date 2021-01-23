@@ -307,6 +307,10 @@ void init_game() {
 	w = 30;
 	b = (int) ((float)h * (float)w) * 0.2125;
 
+	//minefield_alloc();
+	//or should it be
+	//alloc_2d(minefield);
+
 	//center cursor in minefield (might have to move this later)
 	T.cx = (w-1);
 	T.cy = (h-1)/2;
@@ -455,7 +459,7 @@ void draw_gamefield(struct abuf *ab)
 					else if (gamefield[i][j] == 4)
 						abAppend(ab, "\x1b[38;5;40m", 10);
 					else if (gamefield[i][j] == 5)
-						abAppend(ab, "\x1b[38;5;52m", 10);
+						abAppend(ab, "\x1b[38;5;63m", 10);
 					else if (gamefield[i][j] == 6)
 						abAppend(ab, "\x1b[38;5;19m", 10);
 					else if (gamefield[i][j] == 7)
