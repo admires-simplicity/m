@@ -59,11 +59,14 @@ int w;
 int b;
 
 //array to store bombs
-int minefield[16][30];
+//int minefield[16][30];
+int** minefield;
 //array to store player's 
-int gamefield[16][30];
+//int gamefield[16][30];
+int** gamefield;
 //array for space checking DESCRIBE THIS BETTER
-int zcheck[16][30];
+//int zcheck[16][30];
+int** zcheck;
 
 
 
@@ -297,6 +300,32 @@ void friendly_generate_minefield()
 
 }
 
+
+int** alloc_int_2d(int n, int m) {
+	int** p = malloc((n * sizeof *p) + (n * m * sizeof **p)); //allocate p to point to a size of memory capable of storing n pointers to pointers and m pointers for each n
+	int* first_location_of_second_dimension = (int*) (p + n);
+
+	for (int i = 0; i < n; ++i) {
+		p[i] = first_location_of_second_dimension + (i * m); //point pointer pointer i to a pointer loacated i * m pointers after the pointer pointers
+	}
+
+	return p;
+}
+
+void alloc_fields() {
+	int i, j;
+
+	minefield = alloc_int_2d(h, w);
+	gamefield = alloc_int_2d(h, w);
+	zcheck = alloc_int_2d(h, w);
+}
+
+void free_fields() {
+	free(minefield);
+	free(gamefield);
+	free(zcheck);
+}
+
 //initialize minefields in T struct
 void init_game() {
 	T.cx = G.cx = 0;
@@ -310,6 +339,10 @@ void init_game() {
 	//minefield_alloc();
 	//or should it be
 	//alloc_2d(minefield);
+	
+	free_fields();
+
+	alloc_fields();
 
 	//center cursor in minefield (might have to move this later)
 	T.cx = (w-1);
@@ -772,6 +805,9 @@ void process_keypress() {
 			
 			write(STDOUT_FILENO, "\x1b[17;1H", 7);	//position cursor 1,1
 			write(STDOUT_FILENO, "\x1b[0m", 4);	//reset colorsbA
+			
+			free_fields();
+
 			exit (0);
 			break;
 		//case 'a':
