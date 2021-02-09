@@ -58,6 +58,10 @@ int h;
 int w;
 int b;
 
+int new_h;
+int new_w;
+
+
 //array to store bombs
 //int minefield[16][30];
 int** minefield;
@@ -80,10 +84,12 @@ void refresh_screen();
 void init_game();
 int get_win_size(int *rows, int *cols);
 
+void move_cursor(int key);
+
 /*** INIT ***/
 int main(void) {
 	enable_raw_mode();
-	init_game();
+	init_game(generation);
 
 	while (1) {			//forever
 		refresh_screen();	//refresh the screen
@@ -110,26 +116,31 @@ int adjacent_bombs(int y, int x)
 	return adj;
 }
 
-//Set the minefield to initial conditions
-void initialize_fields()
-{
-	void random_generate_minefield();
-	void friendly_generate_minefield();
+void random_generate_minefield();
+void friendly_generate_minefield();
 
+void generate_minefield(int generation) {
+	if (generation == 0)
+		random_generate_minefield();
+	else if (generation == 1)
+		friendly_generate_minefield();
+	else if (generation == -1)
+		;	// THIS MEANS DO NOTHING INTENTIONALLY
+	else
+		die("GENERATION COMMAND NOT UNDERSTOOD");
+}
+
+//Set the minefield to initial conditions
+void initialize_fields(int gen)
+{
 	for (int i = 0; i < h; ++i)
 		for (int j = 0; j < w; ++j) {
 			minefield[i][j] = 0;
 			gamefield[i][j] = OFF;	//init gamefield
 			zcheck[i][j] = 0;
 		}
-
-	if (generation == 0)
-		random_generate_minefield();
-	else if (generation == 1)
-		friendly_generate_minefield();
-	else
-		die("GENERATION COMMAND NOT UNDERSTOOD");
-
+	
+	generate_minefield(gen);
 }
 
 void random_generate_minefield()
@@ -320,20 +331,122 @@ void alloc_fields() {
 	zcheck = alloc_int_2d(h, w);
 }
 
+int **realloc_int_2d(int** p, int n, int m) {
+	p = realloc(p, ((n * sizeof *p) + (n * m * sizeof **p)));
+
+	int* first_location_of_second_dimension = (int*) (p + n);
+
+	for (int i = 0; i < n; ++i) {
+		p[i] = first_location_of_second_dimension + (i * m);
+	}
+
+	return p;
+}
+
+void realloc_fields() {
+	minefield = realloc_int_2d(minefield, h, w);
+	gamefield = realloc_int_2d(gamefield, h, w);
+	zcheck = realloc_int_2d(zcheck, h, w);
+
+	if (minefield == NULL || gamefield == NULL || zcheck == NULL) {
+		die("Some field was unable to reallocate (update this error message l8r)");		
+	}
+}
+
 void free_fields() {
 	free(minefield);
 	free(gamefield);
 	free(zcheck);
 }
 
+void reposition_cursor() {
+	
+}
+
+int equivalent_coord(int old_coord, int old_max, int new_max) {
+	float old_percent_of_max = old_coord / old_max;
+
+	return old_percent_of_max * new_max;
+}
+
+void reset() {
+
+	int i;
+
+	
+
+	float current_percent_y = (float) G.cy / (float) h;	
+	float current_percent_x = (float) G.cx / (float) w;
+
+	int new_y = (int) (current_percent_y * (float) new_h);
+	int new_x = (int) (current_percent_x * (float) new_w);
+
+	//int y_to_move = equivalent_coord(G.cy, h, new_h) - G.cy; 
+	int y_to_move = new_y - G.cy;
+	int x_to_move = new_x - G.cx;
+
+	h = new_h;
+	w = new_w;
+	b = (int) ((float)h * (float)w) * 0.2125;
+
+	realloc_fields();
+
+	initialize_fields(-1);
+
+//	if (y_to_move > 0) {
+//		for (int i = 0; i < y_to_move; ++i) {
+//			move_cursor(ARROW_DOWN);
+//		}
+//	}
+//	else if (y_to_move < 0) {
+//		for (int i = 0; i < -y_to_move; ++i) {
+//			move_cursor(ARROW_UP);
+//		}
+//
+//	}
+
+	while (x_to_move || y_to_move) {
+		if (y_to_move > 0) {
+			move_cursor(ARROW_DOWN);
+			--y_to_move;
+		} else if (y_to_move < 0) {
+			move_cursor(ARROW_UP);
+			++y_to_move;
+		}
+
+		if (x_to_move > 0) {
+			move_cursor(ARROW_RIGHT);
+			--x_to_move;
+		} else if (x_to_move < 0) {
+			move_cursor(ARROW_LEFT);
+			++x_to_move;
+		}
+	}
+
+	generate_minefield(generation);
+	//disable_raw_mode();
+}
+
+void center_cursor() {
+	//center cursor in minefield (might have to move this later)
+	T.cx = (w-1);
+	if (w % 2) {
+		--T.cx;
+	}
+	T.cy = (h-1)/2;
+
+	G.cx = (w-1)/2;
+	G.cy = (h-1)/2;
+}
+
 //initialize minefields in T struct
-void init_game() {
+void init_game(int gen) {
 	T.cx = G.cx = 0;
 	T.cy = G.cy = 0;
 
 	//SET MINEFIELD VARIABLES
-	h = 16;
-	w = 30;
+	h = new_h = 16;
+	w = new_w = 30;
 	b = (int) ((float)h * (float)w) * 0.2125;
 
 	//minefield_alloc();
@@ -344,17 +457,12 @@ void init_game() {
 
 	alloc_fields();
 
-	//center cursor in minefield (might have to move this later)
-	T.cx = (w-1);
-	T.cy = (h-1)/2;
 
-	G.cx = (w-1)/2;
-	G.cy = (h-1)/2;
-
+	center_cursor();
 
 	srand(time(NULL)); //seed random generator
 
-	initialize_fields();
+	initialize_fields(gen);
 
 	if (get_win_size(&T.screenrows, &T.screencols) == -1) die("get_win_size");
 }
@@ -803,7 +911,7 @@ void process_keypress() {
 			//write(STDOUT_FILENO, "\x1b[H", 3);	//position cursor 1,1
 
 			
-			write(STDOUT_FILENO, "\x1b[17;1H", 7);	//position cursor 1,1
+			write(STDOUT_FILENO, "\x1b[999;1H", 8);	//position cursor [FIX HARDCODING]
 			write(STDOUT_FILENO, "\x1b[0m", 4);	//reset colorsbA
 			
 			free_fields();
@@ -826,7 +934,7 @@ void process_keypress() {
 
 
 		case CTRL_KEY('r'):
-			initialize_fields();
+			reset();
 			break;
 
 		case ' ':
@@ -840,6 +948,28 @@ void process_keypress() {
 
 		case 'd':
 			toggle_marked();
+			break;
+
+		case '+':
+			++new_h;
+			break;
+
+		case '-':
+			if (new_h > 1)
+				--new_h;
+			break;
+
+		case '*':
+			++new_w;
+			break;
+
+		case '/':
+			if (new_w > 1)
+				--new_w;
+			break;
+
+		case '0':
+			center_cursor();
 			break;
 
 		default:

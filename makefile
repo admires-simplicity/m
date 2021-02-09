@@ -1,2 +1,2 @@
 make minesweeper:
-	gcc -o minesweeper main.c termhandling.c
+	gcc -g -o minesweeper main.c termhandling.c
