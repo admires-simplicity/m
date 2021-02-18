@@ -8,6 +8,7 @@
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #include "termhandling.h"
 
@@ -42,6 +43,7 @@ struct termhandler { //struct for handling terminal variables
 
 struct termhandler T;
 
+//OLD COMMENT
 /*I think if I put the minefield variables inside this gamehandler, I would be able to initialize them by variables?
  * Maybe, But I still don't know why that'd be better than just initializing them by variables outside everything...*/
 /*struct for handling position by game cell, rather than position by terminal cell*/
@@ -58,9 +60,15 @@ int h;
 int w;
 int b;
 
+//counter variables
+int flagged_spaces;
+int unknown_cells;
+
+//modifying variables
 int new_h;
 int new_w;
 
+int alive;
 
 //array to store bombs
 //int minefield[16][30];
@@ -73,7 +81,6 @@ int** gamefield;
 int** zcheck;
 
 
-
 int generation = 1;	//0 = random, 1 = friendly
 
 /*** FUNCTION PROTOTYPES ***/
@@ -81,22 +88,67 @@ int read_key();
 void process_keypress();
 void refresh_screen();
 
-void init_game();
+void init_game(int gen, int initial_h, int initial_w);
 int get_win_size(int *rows, int *cols);
 
 void move_cursor(int key);
 
-/*** INIT ***/
-int main(void) {
-	enable_raw_mode();
-	init_game(generation);
+void free_fields();
 
-	while (1) {			//forever
+void cleanup();
+
+/*** INIT ***/
+int main(int argc, char* argv[]) {
+	int init_h = 0, init_w = 0;
+	char* end;
+	
+	enable_raw_mode();
+	atexit(cleanup);
+
+	while (--argc > 0 && (*++argv)[0] == '-') {
+		errno = 0;
+		switch((*argv)[1]) {
+			case ('h'):
+				if (argc > 1) {
+					if (!(init_h = strtol(*(++argv), &end, 10)))
+						die("Invalid height input");
+					if (*end != '\0')
+						die("Inconvertible height input");
+					--argc;
+				} else {
+					die("You didn't enter a height!");
+				}
+				break;
+			case ('w'):
+				if (argc > 1) {
+					if (!(init_w = strtol(*(++argv), &end, 10)))
+						die("Invalid width input");
+					if (*end != '\0')
+						die("Inconvertible width input");
+					--argc;
+				} else {
+					die("You didn't enter a width!");
+				}
+				break;
+		}
+	}
+
+
+	init_game(generation, init_h, init_w);
+
+	while (alive) {			//forever
 		refresh_screen();	//refresh the screen
 		process_keypress();	//handle keypress (get keypress (wait for keypress))
 	}
+	refresh_screen();
 
 	return 0;
+}
+
+void cleanup() {
+	write(STDOUT_FILENO, "\x1b[999;1H", 8);	//position cursor [FIX HARDCODING]
+	write(STDOUT_FILENO, "\x1b[0m", 4);	//reset colors
+	free_fields();
 }
 
 //Return the number of adjacent bombs, at a given x,y coordinate, in the minefield
@@ -372,7 +424,6 @@ int equivalent_coord(int old_coord, int old_max, int new_max) {
 void reset() {
 
 	int i;
-
 	
 
 	float current_percent_y = (float) G.cy / (float) h;	
@@ -425,6 +476,8 @@ void reset() {
 
 	generate_minefield(generation);
 	//disable_raw_mode();
+	//
+	unknown_cells = h * w;
 }
 
 void center_cursor() {
@@ -440,14 +493,22 @@ void center_cursor() {
 }
 
 //initialize minefields in T struct
-void init_game(int gen) {
+void init_game(int gen, int initial_h, int initial_w) {
+	alive = TRUE;
+
 	T.cx = G.cx = 0;
 	T.cy = G.cy = 0;
 
 	//SET MINEFIELD VARIABLES
-	h = new_h = 16;
-	w = new_w = 30;
+	if (!initial_h)
+		initial_h = 16;
+	if (!initial_w)
+		initial_w = 30;
+	h = new_h = initial_h;
+	w = new_w = initial_w;
 	b = (int) ((float)h * (float)w) * 0.2125;
+
+	unknown_cells = h * w;
 
 	//minefield_alloc();
 	//or should it be
@@ -524,25 +585,129 @@ void abFree(struct abuf *ab) {
 
 void draw_minefield(struct abuf *ab)
 {
+//	char *c;
+//	char buf[2]; //size for one character, and the null byte? lel
+//	int z;
+//
+//	for (int i = 0; i < h; ++i) {
+//		//printf("%2d: ", i);
+//		for (int j = 0; j < w; ++j) {
+//			if (minefield[i][j] == 1)
+//				abAppend(ab, "@", 1);
+//			else
+//				if (z = adjacent_bombs(i, j)) {	//not 0 adj boms
+//					snprintf(buf, sizeof(buf), "%d", z);
+//					abAppend(ab, buf, strlen(buf));
+//				} else {
+//					abAppend(ab, ".", 1);
+//				}
+//		}
+//		abAppend(ab, "\r\n", 2);
+//	}
+
 	char *c;
-	char buf[2]; //size for one character, and the null byte? lel
+	char buf[2]; //size for one char and null byte			//AT SOME POINT THIS SHOULD BE REPLACED WITH A FUNCTION TO WRITE CHARS TO SCREEN
 	int z;
 
+	//abAppend(ab, "\x1b[45;5;231m", 11);
+	
+	
+	//SET BACKGROUND COLOR
+	abAppend(ab, "\x1b[48;5;235m", 11);
+	//SET FOREGROUND WHITE
+	abAppend(ab, "\x1b[38;5;15m", 10);
+
+
 	for (int i = 0; i < h; ++i) {
-		//printf("%2d: ", i);
 		for (int j = 0; j < w; ++j) {
-			if (minefield[i][j] == 1)
-				abAppend(ab, "*", 1);
-			else
-				if (z = adjacent_bombs(i, j)) {	//not 0 adj boms
-					snprintf(buf, sizeof(buf), "%d", z);
-					abAppend(ab, buf, strlen(buf));
-				} else {
+			abAppend(ab, " ", 1);
+			switch (gamefield[i][j]) {
+				case OFF:
+					if (i == G.cy && j == G.cx) {
+						if (minefield[i][j]) {
+							abAppend(ab, "\x1b[38;5;231m", 11);
+							abAppend(ab, "\x1b[48;5;9m", 9);
+							abAppend(ab, "@", 1);
+							abAppend(ab, "\x1b[38;5;15m", 10);
+							abAppend(ab, "\x1b[48;5;235m", 11);
+						}
+						else {
+							die("That's probably a fatal error, brother");
+						}
+					} else if (minefield[i][j]) {
+						abAppend(ab, "\x1b[38;5;231m", 11);
+						abAppend(ab, "@", 1);
+						abAppend(ab, "\x1b[38;5;15m", 10);
+					} else {
+						abAppend(ab, ".", 1);
+					}
+					break;
+				case ACTIVATED:
+					abAppend(ab, "@", 1);
+					break;
+				case EMPTY:
+					abAppend(ab, " ", 1);
+					break;
+				case FLAGGED:
+					if (minefield[i][j]) {
+						abAppend(ab, "\x1b[38;5;14m", 10);
+						abAppend(ab, "!", 1);
+						abAppend(ab, "\x1b[38;5;15m", 10);
+					} else {
+						abAppend(ab, "\x1b[38;5;14m", 10);
+						abAppend(ab, "\x1b[48;5;9m", 9);
+						abAppend(ab, "!", 1);
+						abAppend(ab, "\x1b[38;5;15m", 10);
+						abAppend(ab, "\x1b[48;5;235m", 11);
+
+					}
+					break;
+				case MARKED:
+					abAppend(ab, "\x1b[38;5;107m", 11);
+					abAppend(ab, "?", 1);
+					abAppend(ab, "\x1b[38;5;15m", 10);
+					break;
+				case 0:
+					die("Sorry pal, the 0 is deprecated, LOL. Alternatively, i might switch everything to 0 later... LOL");
 					abAppend(ab, ".", 1);
-				}
+					break;
+				default:	//PRINTING NUMBERS
+					//roygbiv
+					//vibgyor
+					//v b y r i g o
+					if (gamefield[i][j] == 1)
+						abAppend(ab, "\x1b[38;5;200m", 11);
+					else if (gamefield[i][j] == 2)
+						abAppend(ab, "\x1b[38;5;33m", 10);
+					else if (gamefield[i][j] == 3)
+						abAppend(ab, "\x1b[38;5;11m", 10);
+					else if (gamefield[i][j] == 4)
+						abAppend(ab, "\x1b[38;5;40m", 10);
+					else if (gamefield[i][j] == 5)
+						abAppend(ab, "\x1b[38;5;63m", 10);
+					else if (gamefield[i][j] == 6)
+						abAppend(ab, "\x1b[38;5;19m", 10);
+					else if (gamefield[i][j] == 7)
+						abAppend(ab, "\x1b[38;5;133m", 11);
+					else if (gamefield[i][j] == 8)
+						abAppend(ab, "\x1b[38;5;196m", 11);
+
+					buf[0] = gamefield[i][j] + '0';
+					buf[1] = '\0';
+					abAppend(ab, buf, 1);
+					//RESET FOREGROUND
+					abAppend(ab, "\x1b[38;5;15m", 10);
+					break;
+			}
 		}
 		abAppend(ab, "\r\n", 2);
 	}
+
+	abAppend(ab, "\x1b[48;5;0m", 9);
+
+	//abAppend(ab, "\x1b[45;5;0m", 9);
+
+
 }
 
 void draw_gamefield(struct abuf *ab)
@@ -565,10 +730,10 @@ void draw_gamefield(struct abuf *ab)
 			abAppend(ab, " ", 1);
 			switch (gamefield[i][j]) {
 				case OFF:
-					abAppend(ab, "#", 1);
+					abAppend(ab, ".", 1);
 					break;
 				case ACTIVATED:
-					abAppend(ab, "*", 1);
+					abAppend(ab, "@", 1);
 					break;
 				case EMPTY:
 					abAppend(ab, " ", 1);
@@ -585,7 +750,7 @@ void draw_gamefield(struct abuf *ab)
 					break;
 				case 0:
 					die("Sorry pal, the 0 is deprecated, LOL. Alternatively, i might switch everything to 0 later... LOL");
-					abAppend(ab, "#", 1);
+					abAppend(ab, ".", 1);
 					break;
 				default:	//PRINTING NUMBERS
 					//roygbiv
@@ -636,6 +801,49 @@ int count_bombs()
 	return count;
 }
 
+
+//what I was doing here turned out to be kinda hard, and probably not very important... I might need it for a timer though? maybe not...
+//char* message_buffer;
+//char buf_allocated = TRUE;	//I'm just using this as a boolean... maybe I could do this with a 
+//int buflen = 0;
+//
+//void add_message_string(char *fmt, ...);
+//
+//void add_message_string(char *fmt, ...) {
+//	int old_buflen = buflen;
+//
+//	va_list ap;
+//	va_start(ap, fmt);	//make ap point to 1st unnamed arg
+//	
+//	//to do:
+//	//	allocate message_buffer
+//	//	then, make add_message_string realloc enough space for the passed string and arguments... (how?)
+//	//			maybe I can just use a loop which determines whether there is enough space yet, and adds one extra char??? or maybe 2 chars???
+//	
+//	//maybe I could do an init message string in init_game and a free_message_string in ctrl-q? and in ctrl-r
+//	if (!buf_allocated) {
+//		message_buffer = malloc(buflen = strlen(fmt) * sizeof *fmt);
+//		buf_allocated = TRUE;
+//	}
+//	
+//
+//	int x;
+//
+//	while (!realloc(message_buffer, buflen * sizeof(*message_buffer))) { //buffer is not long enough
+//		buflen += 2;
+//		vsnprintf(message_buffer, sizeof(message_buffer), fmt, ap);
+//	}
+//	
+//	strcpy(message_buffer[old_buflen], 
+//
+//	va_end(ap);
+//}
+//
+//void free_message_string() {
+//	free(message_buffer);
+//	buf_allocated = FALSE;
+//}
+
 void refresh_screen() {
 	struct abuf ab = ABUF_INIT;
 	abAppend(&ab, "\x1b[?25l", 6); //Hide cursor
@@ -644,14 +852,35 @@ void refresh_screen() {
 
 	//draw_rows(&ab);
 	//draw_minefield(&ab);
-	draw_gamefield(&ab);
-	//char bug[20];
-	//snprintf(bug, sizeof(bug), "nbombs == %d\r\n", count_bombs());
-	//abAppend(&ab, bug, strlen(bug));
-	
-	char buf[32];
-	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", T.cy + 1, T.cx + 1); //write move cursor command to buf, with values converted from 0indexed to 1indexed
+	if (alive){
+		draw_gamefield(&ab);
+	} else {
+		//draw_gamefield(&ab);	//TEMPORARY
+		draw_minefield(&ab);
+	}
+
+
+	char buf[30];
+	snprintf(buf, sizeof(buf), "Unaccounted bombs: %d\r\n", b - flagged_spaces);
 	abAppend(&ab, buf, strlen(buf));
+
+	char bug[30];
+	snprintf(bug, sizeof(bug), "Flagged spaces:    %d\r\n", flagged_spaces);
+	abAppend(&ab, bug, strlen(bug));
+
+	char buh[30];
+	snprintf(buh, sizeof(buh), "Unknown spaces:    %d\r\n", unknown_cells);
+	abAppend(&ab, buh, strlen(buh));
+	
+	if (!alive) {
+		char bui[52];
+		snprintf(bui, sizeof(bui), "GAME OVER! Press [key < --- fix this] to restart"); //write move cursor command to buf, with values converted from 0indexed to 1indexed
+		abAppend(&ab, bui, strlen(bui));
+	}
+
+	char buj[32];
+	snprintf(buj, sizeof(buj), "\x1b[%d;%dH", T.cy + 1, T.cx + 1); //write move cursor command to buf, with values converted from 0indexed to 1indexed
+	abAppend(&ab, buj, strlen(buj));
 
 	abAppend(&ab, "\x1b[?25h", 6); //show cursor
 
@@ -777,19 +1006,23 @@ void reveal_cell(int y, int x)
 {
 	int i = adjacent_bombs(y, x);
 
+	if (gamefield[y][x] != i) {
+		--unknown_cells;
+		gamefield[y][x] = i;	//REVEAL CELL
+	}
+
 	if (i < 1 || i > 8)
 		die("reveal_cell: called on nonsensical cell");
-
-	gamefield[y][x] = i;	//REVEAL CELL
 }
 
 ////THIS FUNCTION SHOULD NOT GO HERE BUT I DON'T KNOW WHERE TO PUT IT 
 void step(int y, int x)
 {
 	int i = adjacent_bombs(y, x);
-	
+
 	if (minefield[y][x]) {
-		die("gameover!");
+		//die("gameover!");
+		alive = FALSE;
 	} else {
 		if (i) {
 			if (gamefield[y][x] == i && adjacent_flags(y, x) == i) { //cell is unveiled and adj flags == adj bombs
@@ -828,10 +1061,15 @@ void cascade(int y, int x)
 //SHOULD THIS RESET THE FCHECK POSITION OF THE FLAG?
 void toggle_flag()	//set this zero spot as zero
 {
-	if (gamefield[G.cy][G.cx] == FLAGGED)
+	if (gamefield[G.cy][G.cx] == FLAGGED) {
 		gamefield[G.cy][G.cx] = OFF;
-	else if (gamefield[G.cy][G.cx] == OFF || gamefield[G.cy][G.cx] == MARKED)
+		--flagged_spaces;
+		++unknown_cells;
+	} else if (gamefield[G.cy][G.cx] == OFF || gamefield[G.cy][G.cx] == MARKED) {
 		gamefield[G.cy][G.cx] = FLAGGED;
+		++flagged_spaces;
+		--unknown_cells;
+	}
 
 //	int i;
 //	
@@ -854,10 +1092,15 @@ void toggle_flag()	//set this zero spot as zero
 
 void toggle_marked()
 {
-	if (gamefield[G.cy][G.cx] == MARKED)
+	if (gamefield[G.cy][G.cx] == MARKED) {
 		gamefield[G.cy][G.cx] = OFF;
-	else if (gamefield[G.cy][G.cx] == OFF || gamefield[G.cy][G.cx] == FLAGGED)
+		--flagged_spaces;
+		++unknown_cells;
+	} else if (gamefield[G.cy][G.cx] == OFF || gamefield[G.cy][G.cx] == FLAGGED) {
 		gamefield[G.cy][G.cx] = MARKED;
+		++flagged_spaces;
+		--unknown_cells;
+	}
 }
 
 /*** INPUT ***/
@@ -901,6 +1144,8 @@ void gen_rep()
 	printf("gen = %d\r\n", generation);
 }
 
+
+
 //get a key and handle it
 void process_keypress() {
 	int c = read_key();
@@ -911,11 +1156,6 @@ void process_keypress() {
 			//write(STDOUT_FILENO, "\x1b[H", 3);	//position cursor 1,1
 
 			
-			write(STDOUT_FILENO, "\x1b[999;1H", 8);	//position cursor [FIX HARDCODING]
-			write(STDOUT_FILENO, "\x1b[0m", 4);	//reset colorsbA
-			
-			free_fields();
-
 			exit (0);
 			break;
 		//case 'a':
