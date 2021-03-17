@@ -1,5 +1,7 @@
 #include "termhandling.h"
 
+int raw_mode_enabled = 0;
+
 struct termios orig_termios;
 
 //write error message to screen and exit unsucessfully
@@ -7,7 +9,10 @@ void die(const char *s) {
 	write(STDOUT_FILENO, "\x1b[2J", 4);	//clear screen
 	write(STDOUT_FILENO, "\x1b[H", 3);	//position cursor 1,1
 
-	disable_raw_mode(); //we'd disable it when we exited, but then the perror formatting would be messed up
+	if (raw_mode_enabled) {
+		disable_raw_mode(); //we'd disable it when we exited, but then the perror formatting would be messed up
+		raw_mode_enabled = 0;
+	}
 
 	perror(s);
 	exit(1);
@@ -15,6 +20,8 @@ void die(const char *s) {
 
 //edit termios struct, so terminal behaves how I want it to
 void enable_raw_mode() {
+	raw_mode_enabled = 1;
+
 	if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) die("tcgetattr");	//get termios struct
 	atexit(disable_raw_mode);
 

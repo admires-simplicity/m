@@ -24,17 +24,14 @@ move
 CTRL + Q
 quit
 
-f
+' ' (spacebar)
 unveil / step on cell
 
-d
+f
 flag cell
 
-s
+d
 secondary flag cell
-
-a
-unveil all nonflagged adjacent cells
 
 
 based on an image I counted, 
